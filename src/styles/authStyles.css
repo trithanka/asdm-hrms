@@ -1,0 +1,45 @@
+.auth_header {
+  padding: 10px;
+  position: fixed;
+  width: 100vw;
+  top: 0;
+  z-index: 10;
+  background-color: white;
+}
+
+.logo_container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo_container img {
+  height: 60px;
+  width: 55px;
+  margin-inline: 10px;
+}
+
+.logo_container h3,
+.logo_container h6 {
+  margin: 0px;
+}
+
+.logo_container h3 {
+  font-size: 20px;
+  text-align: center;
+  color: #2a75bb;
+}
+
+.logo_container h6 {
+  font-size: 18px;
+  color: rgb(76, 74, 74);
+  text-align: center;
+}
+
+footer {
+  position: fixed;
+  width: 100vw;
+  bottom: 0;
+  background-color: white;
+  text-align: center;
+  padding: 10px;
+}
