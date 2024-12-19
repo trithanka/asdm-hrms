@@ -97,9 +97,7 @@ const router = createBrowserRouter([
         path: "application/:id",
         element: <LeaveApplication />
       },
-     
     ],
-    
   },
   {
     path: "login",
