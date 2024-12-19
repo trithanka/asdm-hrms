@@ -96,9 +96,9 @@ export default function EmployeeActivity() {
           header: () => "Punch In",
           cell: (info) =>
             info.getValue()
-              ? `${moment(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
-                ? "Outdoor"
-                : "Indoor"
+              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
+                ? "Indoor"
+                : "Outdoor"
               })`
               : null,
         }),
@@ -110,7 +110,7 @@ export default function EmployeeActivity() {
           header: () => "Punch Out",
           cell: (info) =>
             info.getValue()
-              ? `${moment(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutdoor === 1 ? "Outdoor" : "Indoor"
+              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
               } )`
               : null,
         }),
