@@ -13,7 +13,6 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import { AuthProvider } from "react-auth-kit";
 // import AuthProvider from "react-auth-kit";
-
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (_, query) => {
