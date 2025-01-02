@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import { emloyeeAttendanceData, employeeDeatils, employeeLeaveReport } from "../../../api/employee/employee-api";
 import { formatDate, formatTime } from "../../../utils/formatter";
+import moment from "moment";
 
 export function useFetchEmployeeCount() {
   const query = useQuery({
@@ -55,17 +56,28 @@ export async function useAttendanceData(staff: any, date: any,dataById?:any) {
 
   let rows: any[] = [];
 
-  if (dataById.length == 0) {
+
+  if (dataById !== true) {
     const response = await emloyeeAttendanceData(staff, date);
-    rows = response?.data?.map((emp: any, index: any) => ({
+    rows = response?.data?.map((emp: any, index: any) => {
+      const punchInFormatted = emp.punchIn
+      ? `${moment.utc(emp.punchIn).format("DD/MM/YYYY hh:mm A")} (${emp.punchInOutdoor === 1 ? "Indoor" : "Outdoor"})`
+      : "N/A";
+
+    const punchOutFormatted = emp.punchOut ? moment.utc(emp.punchOut).format("DD/MM/YYYY hh:mm A") : "N/A";
+
+    return {
       id: index + 1,
       empId: emp.empId,
       name: `${emp.firstName} ${emp.middleName} ${emp.lastName}`,
       designation: emp.designation,
       phoneNo: emp.phone,
       department: emp.departmentName,
+      punchIn: punchInFormatted,
+      punchOut: punchOutFormatted,
       location: emp.location,
-    }));
+    };
+    });
   } else {
     rows = dataById?.data?.map((emp: any, index: number) => (
       {
@@ -81,9 +93,9 @@ export async function useAttendanceData(staff: any, date: any,dataById?:any) {
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(rows);
       XLSX.utils.book_append_sheet(workbook, worksheet, "employees");
-      if (dataById.length == 0) {
+      if (dataById !== true) {
       XLSX.utils.sheet_add_aoa(worksheet, [
-        ["Sl.No", "Employee ID", "Name", "Designation", "Phone Number", "Department", "Location"],
+        ["Sl.No", "Employee ID", "Name", "Designation", "Phone Number", "Department","Punch In", "Punch Out", "Location"],
       ]);
       } else {
       XLSX.utils.sheet_add_aoa(worksheet, [

@@ -10,6 +10,8 @@ import API from "../../../api";
 import { Button } from "@mui/material";
 import generatePDF from "react-to-pdf";
 import { formatDate, formatTime } from "../../../utils/formatter";
+import moment from "moment";
+import useDebounce from "../../../hooks/useDebounce";
 
 export default function AttendanceReport({ goPrevious }: any) {
   const [staff, setStaff] = useState("present");
@@ -18,6 +20,10 @@ export default function AttendanceReport({ goPrevious }: any) {
   const [attendanceType, setAttendanceType] = useState("");
   const [search, setSearch] = useState("");
   const [show, setShow] = useState(false)
+
+
+  const debouncedFilter = useDebounce(search, 1000);
+  
 
 
   const { isPending, data, refetch } = useQuery({
@@ -43,11 +49,11 @@ export default function AttendanceReport({ goPrevious }: any) {
   }, [startDate, endDate, attendanceType, refetch]);
 
   const { isLoading: loading, data: databyId, refetch: reload } = useQuery({
-    queryKey: ["attendanceById", search, startDate, endDate],
+    queryKey: ["attendanceById", debouncedFilter, startDate, endDate],
     queryFn: async () => {
       const res = await API.post("Dashboard/leave/activities/id",
         {
-          candidateId: search,
+          candidateId: debouncedFilter,
           startDate: startDate,
           endDate: endDate,
         });
@@ -59,7 +65,7 @@ export default function AttendanceReport({ goPrevious }: any) {
 
   useEffect(() => {
     reload()
-  }, [search])
+  }, [debouncedFilter])
 
   const targetRef = useRef(null);
   const columnHelper = createColumnHelper<any>();
@@ -95,21 +101,34 @@ export default function AttendanceReport({ goPrevious }: any) {
       footer: (info) => info.column.id,
     }),
     ...(staff !== "absent" ? [
-      columnHelper.accessor("punchInOutdoor", {
-        header: () => "Type",
-        cell: (info) => {
-          const value = info.getValue()
-          if (value === 1) {
-            return "Outside"
-          } else if (value === 0) {
-            return "Inside"
-          }
-        },
+      columnHelper.accessor("punchIn", {
+        header: () => "Punch In",
+        cell: (info) =>
+          info.getValue()
+              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
+                ? "Indoor"
+                : "Outdoor"
+              })`
+              : "N/A",
         footer: (info) => info.column.id,
-      })] : []),
+      }),
+      columnHelper.accessor("punchOut", {
+        header: () => "Punch Out",
+        cell: (info) =>
+          info.getValue()
+            ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            } )`
+            : "N/A",
+      }),
+    ] : []),
     columnHelper.accessor("location", {
       header: () => "Location",
-      cell: (info) => info.getValue(),
+      cell: (info) => {
+      const location = info.getValue();
+      // Get the first 3 words and add ellipsis
+      const truncatedLocation = location.split(' ').slice(0, 3).join(' ') + "...";
+      return truncatedLocation;
+      },
       footer: (info) => info.column.id,
     })
   ]
@@ -128,12 +147,11 @@ export default function AttendanceReport({ goPrevious }: any) {
     columnHelper.accessor("punchIn", {
       header: () => "Punch-In Time",
       cell: (info) => {
-        const value = info.getValue()
-        if (value) {
-          return formatTime(value)
-        } else {
-          return "-- --"
-        }
+        const value = info.getValue();
+        return value
+            ? `${moment.utc(value).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            } )`
+            : "-- --";
       },
       footer: (info) => info.column.id,
     }),
@@ -141,24 +159,10 @@ export default function AttendanceReport({ goPrevious }: any) {
       header: () => "Punch-Out Time",
       cell: (info) => {
         const value = info.getValue()
-        if (value) {
-          return formatTime(value)
-        } else {
-          return "-- --"
-        }
-      },
-      footer: (info) => info.column.id,
-    }),
-    columnHelper.accessor("punchInOutdoor", {
-      header: () => "Punch In",
-      cell: (info) => {
-        const value = info.getValue()
-        if (value === 1) {
-          return "Outside"
-        } else if (value === 0) {
-          return "Inside"
-        }
-        return "-- --"
+        return value
+            ? `${moment.utc(value).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            } )`
+            : "-- --";
       },
       footer: (info) => info.column.id,
     }),
@@ -210,7 +214,7 @@ export default function AttendanceReport({ goPrevious }: any) {
         </Button>
         { show ?
           <div style={ { display: "flex", flexDirection: "column", width: "30%" } }>
-            <label htmlFor="search">Search</label>
+            <label htmlFor="search">Search by Employee Id</label>
             <input
               id="search"
               type="text"
@@ -242,7 +246,7 @@ export default function AttendanceReport({ goPrevious }: any) {
                 <option value="absent">Absent</option>
               </select>
             </div>
-            { staff !== "absent" &&
+            {/* { staff !== "absent" &&
               <div style={ { display: "flex", flexDirection: "column", width: "15%" } }>
                 <label htmlFor="type">
                   Attendance Type
@@ -260,7 +264,7 @@ export default function AttendanceReport({ goPrevious }: any) {
                   <option value="outside">Outside Attendance</option>
                 </select>
               </div>
-            }
+            } */}
           </> }
         <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
           <label htmlFor="date">From</label>

@@ -41,7 +41,7 @@ export default function SignInPage() {
   const { mutate, isPending } = useMutation({
     mutationFn: login,
     onSuccess(data) {
-      if(data.message	==="You Are Not Authorized to Open This Site"){
+      if(data?.status === false){
         toast.error(data?.message ?? "Login failed");
       }
       if (data?.status === "failed" || data?.status === "error") {

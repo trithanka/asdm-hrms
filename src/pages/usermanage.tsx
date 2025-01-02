@@ -21,7 +21,7 @@ import {
   FormControl,
   IconButton
 } from '@mui/material';
-import {  Menu, MenuItem as MuiMenuItem } from '@mui/material';
+import {  MenuItem as MuiMenuItem } from '@mui/material';
 
 import { toast, Toaster } from 'react-hot-toast';
 import { SelectChangeEvent } from '@mui/material/Select';
@@ -37,7 +37,7 @@ const UserManage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [bAccess, setSelectedOption] = useState('');
   const [isLoading, setIsLoading] = useState(true); // State for loading
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [open, setOpen] = useState<boolean>(false);
   const [userLoginName, setName] = useState<string>('');
   const navigate = useNavigate();
 
@@ -154,7 +154,6 @@ const UserManage: React.FC = () => {
           },
         }
       );
-      console.log('Fetched data:', response.data);
       setUsers(response.data.data || []); // Set the fetched data to users state, ensure it's an array
       setIsLoading(false); // Set loading to false once data is fetched
     } catch (err) {
@@ -252,12 +251,8 @@ const UserManage: React.FC = () => {
 
  
 
-  const handleMenuClick = (event: MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
+  const handleProfileClick = () => {
+    setOpen(!open);
   };
 
   const handleLogout = () => {
@@ -329,28 +324,19 @@ const UserManage: React.FC = () => {
           <Typography variant="body1" style={{ marginRight: '10px' }}>
             {userLoginName} {/* Display login name */}
           </Typography>
-          <UserIcon onClick={handleMenuClick}>
+          <UserIcon onClick={handleProfileClick}>
             {userLoginName.charAt(0)} {/* Display first letter of login name */}
           </UserIcon>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            PaperProps={{
-              style: {
-                marginTop: '10px', // Position the menu below the icon
-                marginLeft: '-10px', // Adjust if needed to align with the icon
-              },
-            }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }} // Align menu to the right
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} // Align menu to the bottom of the icon
-            style={{ marginLeft: '1350px' , marginTop:'50px'}}
+          {open &&
+          <div
+          style={{position:"absolute", marginTop:"90px", backgroundColor:"#fff", marginLeft:"90px"}}
           >
             <MuiMenuItem onClick={handleLogout} >
               <Logout  />
               Log Out
             </MuiMenuItem>
-          </Menu>
+          </div>
+}
         </Box>
       </Navbar>
 
@@ -436,11 +422,8 @@ const UserManage: React.FC = () => {
             <TableHead style={{ backgroundColor: 'DodgerBlue' }}>
               <TableRow>
                 <TableCell style={{ textAlign: 'center' }}>SI No</TableCell>
-                <TableCell style={{ textAlign: 'center' }}>Login ID</TableCell>
                 <TableCell style={{ textAlign: 'center' }}>Login Name</TableCell>
-                <TableCell style={{ textAlign: 'center' }}>Role ID</TableCell>
                 <TableCell style={{ textAlign: 'center' }}>Status</TableCell>
-               
                 <TableCell style={{ textAlign: 'center' }}>Updated By</TableCell>
                 <TableCell style={{ textAlign: 'center' }}>Updated Date</TableCell>
                 <TableCell style={{ textAlign: 'center' }}>Actions</TableCell>
@@ -452,9 +435,7 @@ const UserManage: React.FC = () => {
                   <TableRow key={user.loginId}>
                     {/* Display Serial Number */}
                     <TableCell style={{ textAlign: 'center' }}>{currentPage * rowsPerPage + index + 1}</TableCell>
-                    <TableCell style={{ textAlign: 'center' }}>{user.loginId}</TableCell>
                     <TableCell style={{ textAlign: 'center' }}>{user.loginName}</TableCell>
-                    <TableCell style={{ textAlign: 'center' }}>{user.roleId}</TableCell>
                     <TableCell style={{ textAlign: 'center' }}>
                       {user.Access === 0 ? (
                         <Typography color="primary">Read</Typography>

@@ -76,7 +76,7 @@ export default function ReportPage() {
                       width: "20rem",
                       height: "10rem",
                     } }
-                  ><Typography fontSize={ 20 } fontWeight={ 500 }>Export Active Employee Data</Typography></Paper>
+                    ><Typography fontSize={ 20 } fontWeight={ 500 }>Export Active Employee Data</Typography></Paper>
                 </Button>
                 <Button onClick={ () => { setShowFilter("release"), setEmployeeStatus(1) } }>
                   <Paper

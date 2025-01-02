@@ -53,8 +53,8 @@ export default function EmployeeActivityTable(props: Props) {
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [filtering, setFiltering] = React.useState("");
-  const [showFilter, setShowFilter] = React.useState(false);
-  const [departmentfiltering, setDepartmentFiltering] = React.useState("");
+  const [showFilter, setShowFilter] = React.useState(true);
+  const [departmentfiltering, setDepartmentFiltering] = React.useState("MIS");
   const [datefiltering, setDateFiltering] = React.useState("");
 
   const todayDate = new Date().toISOString().split('T')[0];
@@ -132,14 +132,13 @@ export default function EmployeeActivityTable(props: Props) {
         </Stack>
       }
 
-      { showFilter ?
         <>
-          <Grid item width={ 20 }>
+          {/* <Grid item width={ 20 }>
             <Button onClick={ () => setShowFilter(false) } sx={ { cursor: "pointer" } }>
               <FilterAltIcon color="primary" />
             </Button>
-          </Grid>
-          <Stack direction="row">
+          </Grid> */}
+          <Stack direction="row" mt={"-50px"}>
             { departments?.length &&
               <div style={ { display: "flex", alignItems: "center", gap: 5 } }>
                 <div>
@@ -160,7 +159,7 @@ export default function EmployeeActivityTable(props: Props) {
                     </MuiSelect>
                   </Grid>
                 </div>
-                <div style={ { paddingLeft: 20, paddingRight: 20 } }>
+                {/* <div style={ { paddingLeft: 20, paddingRight: 20 } }>
                   <Typography variant="caption" fontWeight={ 500 } gutterBottom>
                     { route == "active" ?
                       "Date of joining"
@@ -180,7 +179,7 @@ export default function EmployeeActivityTable(props: Props) {
                       } }
                     />
                   </Paper>
-                </div>
+                </div> */}
                 <div style={ { width: 10, height: 10 } }>
                   <Button variant="outlined" onClick={ () => { setDateFiltering(""), setDepartmentFiltering("") } }>
                     Reset
@@ -190,13 +189,11 @@ export default function EmployeeActivityTable(props: Props) {
             }
           </Stack>
         </>
-        :
-        <Grid item width={ 20 }>
+        {/* <Grid item width={ 20 }>
           <Button onClick={ () => setShowFilter(true) } sx={ { cursor: "pointer" } }>
             <FilterAltOffIcon color="primary" />
           </Button>
-        </Grid>
-      }
+        </Grid> */}
 
 
       <TableContainer component={ Paper } variant="outlined">

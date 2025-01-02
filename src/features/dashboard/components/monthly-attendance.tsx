@@ -32,6 +32,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import moment from "moment";
 
 export default function MonthlyAttendance() {
   const [filter, setFilter] = useState("");
@@ -310,21 +311,41 @@ const columns = [
     cell: (info) => info.getValue() ?? "N/A",
     footer: (info) => info.column.id,
   }),
-  columnHelper.accessor((row) => row.emailId, {
-    id: "emailId",
-    cell: (info) => info.getValue(),
-    header: () => <span>Email</span>,
-    footer: (info) => info.column.id,
-  }),
-
   columnHelper.accessor("phone", {
     header: () => "Phone Number",
     cell: (info) => info.getValue(),
     footer: (info) => info.column.id,
   }),
+  columnHelper.accessor((row) => row.punchIn, {
+    id: "punchIn",
+    cell: (info) =>
+      info.getValue()
+        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
+          ? "Indoor"
+          : "Outdoor"
+        })`
+        : null,
+    header: () => <span>Punch In</span>,
+    footer: (info) => info.column.id,
+  }),
+  columnHelper.accessor((row) => row.punchOut, {
+    id: "punchOut",
+    cell: (info) =>
+      info.getValue()
+        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+        } )`
+        : "N/A",
+    header: () => <span>Punch Out</span>,
+    footer: (info) => info.column.id,
+  }),
   columnHelper.accessor("location", {
     header: () => "Location",
-    cell: (info) => info.getValue(),
+    cell: (info) => {
+      const location = info.getValue();
+      // Get the first 3 words and add ellipsis
+      const truncatedLocation = location.split(' ').slice(0, 3).join(' ') + "...";
+      return truncatedLocation;
+    },
     footer: (info) => info.column.id,
   }),
 ];

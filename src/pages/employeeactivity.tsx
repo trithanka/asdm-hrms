@@ -48,8 +48,8 @@ export default function EmployeeActivity() {
       header: () => "Phone Number",
       cell: (info) => info.getValue(),
     }),
-    columnHelper.accessor("departmentName", {
-      header: () => "Department Name",
+    columnHelper.accessor("designation", {
+      header: () => "Designation",
       cell: (info) => info.getValue(),
     }),
     ...(param === "active"
@@ -116,6 +116,15 @@ export default function EmployeeActivity() {
         }),
       ]
       : []),
+      columnHelper.accessor("location",{
+        header:()=>"Location",
+        cell: (info) => {
+          const location = info.getValue();
+          // Get the first 3 words and add ellipsis
+          const truncatedLocation = location.split(' ').slice(0, 3).join(' ') + "...";
+          return truncatedLocation;
+        },
+      })
   ];
 
   return (

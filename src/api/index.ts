@@ -6,4 +6,4 @@ const API = axios.create({
 
 export default API;
 
-export type IStatus = "success" | "failed" | "error";
+export type IStatus = true | false | "success" | "failed" | "error";
