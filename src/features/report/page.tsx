@@ -70,6 +70,9 @@ export default function ReportPage() {
                       textAlign: "center",
                       cursor: "pointer",
                       alignContent: "center",
+                      display: "flex",
+                      justifyContent: "center", 
+                      alignItems:"center",
                       bgcolor: theme.palette.primary.light,
                       color: "#fff",
                       px: 3,
@@ -81,8 +84,12 @@ export default function ReportPage() {
                 <Button onClick={ () => { setShowFilter("release"), setEmployeeStatus(1) } }>
                   <Paper
                     variant="outlined"
+                    style={{textAlign:"center",alignContent: "center"}}
                     sx={ {
                       textAlign: "center",
+                      display: "flex",
+                      justifyContent: "center", 
+                      alignItems:"center",
                       alignContent: "center",
                       cursor: "pointer",
                       bgcolor: theme.palette.primary.light,
@@ -102,6 +109,9 @@ export default function ReportPage() {
                       textAlign: "center",
                       cursor: "pointer",
                       alignContent: "center",
+                      display: "flex",
+                      justifyContent: "center", 
+                      alignItems:"center",
                       bgcolor: theme.palette.primary.light,
                       color: "#fff",
                       px: 3,
@@ -118,6 +128,9 @@ export default function ReportPage() {
                       textAlign: "center",
                       cursor: "pointer",
                       alignContent: "center",
+                      display: "flex",
+                      justifyContent: "center", 
+                      alignItems:"center",
                       bgcolor: theme.palette.primary.light,
                       color: "#fff",
                       px: 3,

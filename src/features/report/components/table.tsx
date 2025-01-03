@@ -12,8 +12,9 @@ interface TableFormatProps {
   name?: string;
   empId?: string;
   designation?: string;
+  prosFilter?: string;
 }
-export default function TableFormat({ data, columns, dataShow = false, name, empId, designation, targetRef }: TableFormatProps) {
+export default function TableFormat({ data, columns, dataShow = false, name, empId, designation, targetRef, prosFilter }: TableFormatProps) {
   const [filter, setFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   console.log("daattatata", data);
@@ -23,7 +24,7 @@ export default function TableFormat({ data, columns, dataShow = false, name, emp
     columns,
     state: {
       sorting,
-      globalFilter: filter,
+      globalFilter: filter ? filter : prosFilter,
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),

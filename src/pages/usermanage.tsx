@@ -1,4 +1,4 @@
-import React, { useEffect, useState, MouseEvent } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import axios from 'axios';
 import { styled } from '@mui/material/styles';

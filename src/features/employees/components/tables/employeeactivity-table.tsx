@@ -1,7 +1,5 @@
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import {
   Button,
@@ -53,11 +51,11 @@ export default function EmployeeActivityTable(props: Props) {
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [filtering, setFiltering] = React.useState("");
-  const [showFilter, setShowFilter] = React.useState(true);
+  // const [showFilter, setShowFilter] = React.useState(true);
   const [departmentfiltering, setDepartmentFiltering] = React.useState("MIS");
-  const [datefiltering, setDateFiltering] = React.useState("");
+  // const [datefiltering, setDateFiltering] = React.useState("");
 
-  const todayDate = new Date().toISOString().split('T')[0];
+  // const todayDate = new Date().toISOString().split('T')[0];
 
 
   const table = useReactTable({
@@ -150,7 +148,11 @@ export default function EmployeeActivityTable(props: Props) {
                       size="small"
                       value={ departmentfiltering ?? "" }
                       onChange={ (e) => setDepartmentFiltering(e.target.value) }
+                      displayEmpty
                     >
+                      <MenuItem value="" disabled>
+                        Select Department
+                      </MenuItem>
                       { departments?.map((option: any, idx: number) => (
                         <MenuItem key={ idx } value={ option.label }>
                           { option.label }
@@ -181,7 +183,7 @@ export default function EmployeeActivityTable(props: Props) {
                   </Paper>
                 </div> */}
                 <div style={ { width: 10, height: 10 } }>
-                  <Button variant="outlined" onClick={ () => { setDateFiltering(""), setDepartmentFiltering("") } }>
+                  <Button variant="outlined" onClick={ () => { setDepartmentFiltering("") } }>
                     Reset
                   </Button>
                 </div>

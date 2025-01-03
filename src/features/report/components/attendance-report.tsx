@@ -7,22 +7,28 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "@mui/icons-material";
 import TableFormat from "./table";
 import API from "../../../api";
-import { Button } from "@mui/material";
+import { Button, Grid, MenuItem, Select, Typography } from "@mui/material";
 import generatePDF from "react-to-pdf";
-import { formatDate, formatTime } from "../../../utils/formatter";
+import { formatDate } from "../../../utils/formatter";
 import moment from "moment";
 import useDebounce from "../../../hooks/useDebounce";
+import useFilters from "../../employees/hooks/useFilters";
 
 export default function AttendanceReport({ goPrevious }: any) {
   const [staff, setStaff] = useState("present");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [attendanceType, setAttendanceType] = useState("");
+  // const [attendanceType, setAttendanceType] = useState("");
+  const [departmentfiltering, setDepartmentFiltering] = useState("");
+  
   const [search, setSearch] = useState("");
   const [show, setShow] = useState(false)
 
 
   const debouncedFilter = useDebounce(search, 1000);
+
+    const { departments } = useFilters();
+  
   
 
 
@@ -34,19 +40,19 @@ export default function AttendanceReport({ goPrevious }: any) {
         {
           staff: staff,
           startDate: startDate,
-          type: attendanceType,
+          // type: attendanceType,
           endDate: endDate,
         }
       );
       return res.data;
     },
     retry: false,
-    enabled: !!startDate || !!endDate || !!staff || !!attendanceType,
+    enabled: !!startDate || !!endDate || !!staff,
   });
 
   useEffect(() => {
     refetch()
-  }, [startDate, endDate, attendanceType, refetch]);
+  }, [startDate, endDate, refetch]);
 
   const { isLoading: loading, data: databyId, refetch: reload } = useQuery({
     queryKey: ["attendanceById", debouncedFilter, startDate, endDate],
@@ -100,12 +106,21 @@ export default function AttendanceReport({ goPrevious }: any) {
       cell: (info) => info.getValue(),
       footer: (info) => info.column.id,
     }),
+    columnHelper.accessor((row) => row.punchIn, {
+      id: "punchInDate",
+      cell: (info) =>
+        info.getValue()
+          ? `${moment.utc(info.getValue()).format("DD/MM/YYYY")}`
+          : "N/A",
+      header: () => <span>Date</span>,
+      footer: (info) => info.column.id,
+    }),
     ...(staff !== "absent" ? [
       columnHelper.accessor("punchIn", {
         header: () => "Punch In",
         cell: (info) =>
           info.getValue()
-              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
+              ? `${moment.utc(info.getValue()).format("hh:mm A")} (${info.row.original.punchInOutdoor === 1
                 ? "Indoor"
                 : "Outdoor"
               })`
@@ -116,7 +131,7 @@ export default function AttendanceReport({ goPrevious }: any) {
         header: () => "Punch Out",
         cell: (info) =>
           info.getValue()
-            ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            ? `${moment.utc(info.getValue()).format("hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
             } )`
             : "N/A",
       }),
@@ -149,7 +164,7 @@ export default function AttendanceReport({ goPrevious }: any) {
       cell: (info) => {
         const value = info.getValue();
         return value
-            ? `${moment.utc(value).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            ? `${moment.utc(value).format("hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
             } )`
             : "-- --";
       },
@@ -160,7 +175,7 @@ export default function AttendanceReport({ goPrevious }: any) {
       cell: (info) => {
         const value = info.getValue()
         return value
-            ? `${moment.utc(value).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+            ? `${moment.utc(value).format("hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
             } )`
             : "-- --";
       },
@@ -207,11 +222,15 @@ export default function AttendanceReport({ goPrevious }: any) {
 
   return (
     <div style={ { width: "100%", display: "flex", flexDirection: "column" } }>
-      <div style={ { display: "flex", justifyContent: "end" } }> <Button onClick={ () => setShow(!show) }>Search by { !show ? "individual" : "all" }</Button></div>
-      <div style={ { display: "flex", gap: 10, alignItems: "center" } }>
-        <Button style={ { marginTop: 22 } } startIcon={ <ChevronLeft /> } onClick={ goPrevious }>
+      <div style={ { display: "flex", justifyContent: "space-between", alignItems:"center"  } }>
+      
+      <Button style={ { marginBottom: 22 } } startIcon={ <ChevronLeft /> } onClick={ goPrevious }>
           Back
         </Button>
+        <Button onClick={ () => setShow(!show) }>Search by { !show ? "individual" : "all" }</Button>
+        </div>
+      <div style={ { display: "flex", gap: 10, alignItems: "center" } }>
+        
         { show ?
           <div style={ { display: "flex", flexDirection: "column", width: "30%" } }>
             <label htmlFor="search">Search by Employee Id</label>
@@ -230,7 +249,31 @@ export default function AttendanceReport({ goPrevious }: any) {
             />
           </div>
           : <>
-            <div style={ { display: "flex", flexDirection: "column", width: "15%" } }>
+            { departments?.length &&
+              <div style={ { display: "flex", flexDirection:"column"} }>
+                  <Typography fontSize={16} fontWeight={ 400 } gutterBottom>
+                    Department
+                  </Typography>
+                  <Grid xs={ 4 } sm={ 4 }>
+                    <Select
+                      size="small"
+                      value={ departmentfiltering ?? "" }
+                      onChange={ (e) => setDepartmentFiltering(e.target.value) }
+                      displayEmpty
+                    >
+                      <MenuItem value="">
+                        All Department
+                      </MenuItem>
+                      { departments?.map((option: any, idx: number) => (
+                        <MenuItem key={ idx } value={ option.label }>
+                          { option.label }
+                        </MenuItem>
+                      )) }
+                    </Select>
+                  </Grid>
+                </div>
+              }
+            <div style={ { display: "flex", flexDirection: "column", width: "20%" } }>
               <label htmlFor="staff">Staff Present/Absent</label>
               <select name="staff" id=""
                 value={ staff }
@@ -246,25 +289,6 @@ export default function AttendanceReport({ goPrevious }: any) {
                 <option value="absent">Absent</option>
               </select>
             </div>
-            {/* { staff !== "absent" &&
-              <div style={ { display: "flex", flexDirection: "column", width: "15%" } }>
-                <label htmlFor="type">
-                  Attendance Type
-                </label>
-                <select name="type" id=""
-                  onChange={ (e) => setAttendanceType(e.target.value) }
-                  style={ {
-                    paddingInline: "1rem",
-                    paddingBlock: "0.5rem",
-                    border: "0.4px solid gray",
-                    borderRadius: "5px",
-                  } }>
-                  <option value="">All</option>
-                  <option value="inside">Inside Attendance</option>
-                  <option value="outside">Outside Attendance</option>
-                </select>
-              </div>
-            } */}
           </> }
         <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
           <label htmlFor="date">From</label>
@@ -309,7 +333,7 @@ export default function AttendanceReport({ goPrevious }: any) {
       { isPending || loading ?
         "Loading..."
         :
-        <TableFormat dataShow={ !show ? false : true } data={ !show ? data : databyId } columns={ !show ? columns : Idcolumns } name={ employeeDetails.empName ?? "N/A" } empId={ employeeDetails?.empId ?? "N/A" } designation={ employeeDetails?.designation ?? "N/A" } targetRef={ targetRef } />
+        <TableFormat dataShow={ !show ? false : true } data={ !show ? data : databyId } columns={ !show ? columns : Idcolumns } name={ employeeDetails.empName ?? "N/A" } empId={ employeeDetails?.empId ?? "N/A" } designation={ employeeDetails?.designation ?? "N/A" } targetRef={ targetRef }  prosFilter={departmentfiltering}/>
       }
     </div>
   );

@@ -7,7 +7,9 @@ import LeaveDetailCard from "../../leaves/components/cards/leave-detail-card";
 import API from "../../../api";
 import {
   Box,
+  Button,
   Divider,
+  Grid,
   MenuItem,
   Pagination,
   Paper,
@@ -33,45 +35,47 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import moment from "moment";
+import useFilters from "../../employees/hooks/useFilters";
 
 export default function MonthlyAttendance() {
   const [filter, setFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [staff, setStaff] = useState("present");
+  const [departmentfiltering,setDepartmentFiltering] = useState("");
+  const { departments } = useFilters();
 
-  const [date, setDate] = useState(() => {
-    // Initialize the state with the current date formatted as 'YYYY-MM-DD'
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  
 
   const { isPending, data, refetch } = useQuery({
-    queryKey: ["attendance", date, staff],
+    queryKey: ["attendance", startDate, endDate, staff],
     queryFn: async () => {
       const res = await API.post(
         "https://hrms.skillmissionassam.org/nw/Dashboard/leave/activities",
         {
           staff: staff,
-          date,
+          startDate: startDate,
+          endDate: endDate,
         }
       );
 
       return res.data;
     },
     retry: false,
-    enabled: !!date || !!staff,
+    enabled: !!startDate || !!endDate || !!staff,
   });
 
   useEffect(() => {
     refetch();
-  }, [date, refetch]);
+  }, [startDate, endDate, refetch]);
 
   const table = useReactTable({
     data: data && data.data,
     columns,
     state: {
       sorting,
-      globalFilter: filter,
+      globalFilter: filter ? filter : departmentfiltering,
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -84,6 +88,13 @@ export default function MonthlyAttendance() {
     table.setPageIndex(value - 1);
   };
 
+  const handleReset =()=>{
+    setDepartmentFiltering("");
+    setStartDate("");
+    setEndDate("");
+    setFilter("")
+  }
+
   return (
     <>
       <LeaveDetailCard title="Monthly Attendance">
@@ -93,7 +104,7 @@ export default function MonthlyAttendance() {
           justifyContent={"space-between"}
         >
           <div
-            style={{ display: "flex", flexDirection: "column", width: "40%" }}
+            style={{ display: "flex", flexDirection: "column", width: "25%" }}
           >
             <label htmlFor="search">Search</label>
             <input
@@ -110,9 +121,35 @@ export default function MonthlyAttendance() {
               }}
             />
           </div>
-
+            { departments?.length &&
+              <div style={ { display: "flex", alignItems: "center" } }>
+                <div>
+                  <Typography variant="caption" fontWeight={ 500 } gutterBottom>
+                    Department
+                  </Typography>
+                  <Grid item xs={ 4 } sm={ 4 }>
+                    <Select
+                      size="small"
+                      value={ departmentfiltering ?? "" }
+                      onChange={ (e) => setDepartmentFiltering(e.target.value) }
+                      displayEmpty
+                    >
+                    <MenuItem value="" disabled>
+                      Select Department
+                    </MenuItem>
+                      { departments?.map((option: any, idx: number) => (
+                        <MenuItem key={ idx } value={ option.label }>
+                          { option.label }
+                        </MenuItem>
+                      )) }
+                    </Select>
+                  </Grid>
+                </div>
+                
+              </div>
+            }
           <div
-            style={{ display: "flex", flexDirection: "column", width: "25%" }}
+            style={{ display: "flex", flexDirection: "column", width: "20%" }}
           >
             <label htmlFor="staff">Staff Present/Absent</label>
             <select
@@ -131,23 +168,28 @@ export default function MonthlyAttendance() {
             </select>
           </div>
 
-          <div
-            style={{ display: "flex", flexDirection: "column", width: "25%" }}
-          >
-            <label htmlFor="date">Date</label>
-            <input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              style={{
-                paddingInline: "1rem",
-                paddingBlock: "0.5rem",
-                border: "0.4px solid gray",
-                borderRadius: "5px",
-              }}
-            />
-          </div>
+          <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
+          <label htmlFor="date">From</label>
+          <input type="date" value={ startDate } onChange={ (e) => setStartDate(e.target.value) } max={ new Date().toISOString().split("T")[0] } style={ {
+            paddingInline: "1rem",
+            paddingBlock: "0.5rem",
+            border: "0.4px solid gray",
+            borderRadius: "5px",
+          } } />
+        </div>
+
+        <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
+          <label htmlFor="date">To</label>
+          <input type="date" value={ endDate } onChange={ (e) => setEndDate(e.target.value) } max={ new Date().toISOString().split("T")[0] } style={ {
+            paddingInline: "1rem",
+            paddingBlock: "0.5rem",
+            border: "0.4px solid gray",
+            borderRadius: "5px",
+          } } />
+        </div>
+        <Button variant="outlined" onClick={handleReset} sx={{marginTop:"22px"}}>
+            Reset
+        </Button>
         </Box>
 
         {isPending ? (
@@ -317,10 +359,19 @@ const columns = [
     footer: (info) => info.column.id,
   }),
   columnHelper.accessor((row) => row.punchIn, {
+    id: "punchInDate",
+    cell: (info) =>
+      info.getValue()
+        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY")}`
+        : "N/A",
+    header: () => <span>Date</span>,
+    footer: (info) => info.column.id,
+  }),
+  columnHelper.accessor((row) => row.punchIn, {
     id: "punchIn",
     cell: (info) =>
       info.getValue()
-        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
+        ? `${moment.utc(info.getValue()).format("hh:mm A")} (${info.row.original.punchInOutdoor === 1
           ? "Indoor"
           : "Outdoor"
         })`
@@ -332,7 +383,7 @@ const columns = [
     id: "punchOut",
     cell: (info) =>
       info.getValue()
-        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
+        ? `${moment.utc(info.getValue()).format("hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
         } )`
         : "N/A",
     header: () => <span>Punch Out</span>,
