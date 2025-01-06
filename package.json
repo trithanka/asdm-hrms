@@ -23,6 +23,7 @@
     "@tanstack/react-table": "^8.10.7",
     "@types/mapbox-gl": "^3.1.0",
     "axios": "^1.7.7",
+    "html2pdf.js": "^0.10.2",
     "js-cookie": "^3.0.5",
     "jwt-decode": "^4.0.0",
     "mapbox-gl": "^3.3.0",

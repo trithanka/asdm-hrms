@@ -41,15 +41,13 @@ export default function SignInPage() {
   const { mutate, isPending } = useMutation({
     mutationFn: login,
     onSuccess(data) {
-      if(data?.status === false){
+      if (data?.status === false) {
         toast.error(data?.message ?? "Login failed");
       }
       if (data?.status === "failed" || data?.status === "error") {
         toast.error(data?.message ?? "Something went wrong");
         return;
       }
-      // console.log("data are : ", data);
-      // console.log("data are : ", data.systemUser);
       const decoded = jwtDecode(data.token);
       if (
         signIn({
@@ -59,13 +57,12 @@ export default function SignInPage() {
           authState: decoded,
         })
       ) {
-      
         toast.success(data?.message ?? "Login Successfull");
-        localStorage.setItem('name', data.name);
-        
-        if(data.systemUser===true){
+        localStorage.setItem("name", data.name);
+
+        if (data.systemUser === true) {
           navigate("/usermanage");
-        }else if(data.systemUser===false){
+        } else if (data.systemUser === false) {
           navigate("/");
         }
       } else {

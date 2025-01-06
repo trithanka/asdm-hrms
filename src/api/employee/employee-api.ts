@@ -116,8 +116,8 @@ export async function addEmployee(data: AddEmployeeFormValues) {
   return response.data;
 }
 
-export async function editEmployee(data:any) {
-  const response = await API.post("EmployeeManagement/update",data);
+export async function editEmployee(data: any) {
+  const response = await API.post("EmployeeManagement/update", data);
   return response.data;
 }
 
@@ -130,8 +130,12 @@ export async function getEmployeeById(empId: string) {
   return response.data;
 }
 
-export async function employeeDeatils(bReleased: any, designation: string, locationName: string){
-  const response = await API.post("EmployeeManagement/getReport",{
+export async function employeeDeatils(
+  bReleased: any,
+  designation: string,
+  locationName: string
+) {
+  const response = await API.post("EmployeeManagement/getReport", {
     postParam: {
       bReleased,
       designation,
@@ -141,20 +145,27 @@ export async function employeeDeatils(bReleased: any, designation: string, locat
   return response.data;
 }
 
-export async function emloyeeAttendanceData(staff:any, date:any) {
-  const response = await API.post("Dashboard/leave/activities",
-        {
-          staff: staff,
-          date,
-    })
+export async function emloyeeAttendanceData(
+  staff: any,
+  startDate: any,
+  endDate: any
+) {
+  const response = await API.post("Dashboard/leave/activities", {
+    staff: staff,
+    startDate: startDate,
+    endDate: endDate,
+  });
   return response.data;
-};
+}
 
-
-export async function employeeLeaveReport(type:string,startDate:any,endDate:any){
+export async function employeeLeaveReport(
+  type: string,
+  startDate: any,
+  endDate: any
+) {
   const response = await API.post(`LeaveApproval/leaveList/${type}`, {
-    startDate:startDate,
-    endDate:endDate,
-  })
+    startDate: startDate,
+    endDate: endDate,
+  });
   return response.data;
-};
+}

@@ -1,8 +1,32 @@
 import { useState } from "react";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import { SortingState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
-import { Divider, Input, MenuItem, Pagination, Paper, Select, Table, Stack, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import {
+  SortingState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  Divider,
+  Input,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  Table,
+  Stack,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
 
 interface TableFormatProps {
   data: any;
@@ -14,13 +38,20 @@ interface TableFormatProps {
   designation?: string;
   prosFilter?: string;
 }
-export default function TableFormat({ data, columns, dataShow = false, name, empId, designation, targetRef, prosFilter }: TableFormatProps) {
+export default function TableFormat({
+  data,
+  columns,
+  dataShow = false,
+  name,
+  empId,
+  designation,
+  targetRef,
+  prosFilter,
+}: TableFormatProps) {
   const [filter, setFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
-  console.log("daattatata", data);
-
   const table = useReactTable({
-    data: data && data?.data || data?.employeeList,
+    data: (data && data?.data) || data?.employeeList,
     columns,
     state: {
       sorting,
@@ -38,7 +69,7 @@ export default function TableFormat({ data, columns, dataShow = false, name, emp
   };
 
   return (
-    <div style={ { width: "100%", display: "flex", flexDirection: "column" } }>
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
       {/* <div style={ { display: "flex", justifyContent: "space-around" } }>
         <div style={ { display: "flex", flexDirection: "column", width: "20%" } }>
           <label htmlFor="type">Type</label>
@@ -84,52 +115,57 @@ export default function TableFormat({ data, columns, dataShow = false, name, emp
         </LoadingButton>
       </div> */}
 
-
-      <Stack mt={ 4 }>
-        <TableContainer component={ Paper } variant="outlined" ref={ targetRef }>
-          <div style={ { width: "50%", display: "flex", alignItems: "center", margin: 20 } }>
-            { dataShow ?
-              <div style={ { display: "flex", flexDirection: "column" } }>
-                <Typography>Name: { name }</Typography>
-                <Typography>Employee ID: { empId }</Typography>
-                <Typography>Designation: { designation }</Typography>
+      <Stack mt={4}>
+        <TableContainer component={Paper} variant="outlined" ref={targetRef}>
+          <div
+            style={{
+              width: "50%",
+              display: "flex",
+              alignItems: "center",
+              margin: 20,
+            }}
+          >
+            {dataShow ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <Typography>Name: {name}</Typography>
+                <Typography>Employee ID: {empId}</Typography>
+                <Typography>Designation: {designation}</Typography>
               </div>
-              :
+            ) : (
               <Input
                 type="text"
                 placeholder="Search"
-                style={ { width: "100%", marginRight: "2rem" } }
-                onChange={ (e) => setFilter(e.target.value) }
-                value={ filter ?? "" }
+                style={{ width: "100%", marginRight: "2rem" }}
+                onChange={(e) => setFilter(e.target.value)}
+                value={filter ?? ""}
               />
-            }
+            )}
           </div>
           <Table>
             <TableHead>
-              { table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={ headerGroup.id }>
-                  { headerGroup.headers.map((header) => (
-                    <TableCell key={ header.id }>
-                      { header.isPlaceholder ? null : (
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableCell key={header.id}>
+                      {header.isPlaceholder ? null : (
                         <Stack
                           direction="row"
                           alignItems="center"
-                          gap={ 1 }
-                          sx={ {
+                          gap={1}
+                          sx={{
                             cursor: header.column.getCanSort()
                               ? "pointer"
                               : "default",
-                          } }
-                          { ...{
-                            onClick:
-                              header.column.getToggleSortingHandler(),
-                          } }
+                          }}
+                          {...{
+                            onClick: header.column.getToggleSortingHandler(),
+                          }}
                         >
-                          { flexRender(
+                          {flexRender(
                             header.column.columnDef.header,
                             header.getContext()
-                          ) }
-                          { {
+                          )}
+                          {{
                             asc: (
                               <ArrowUpwardIcon
                                 color="primary"
@@ -142,33 +178,33 @@ export default function TableFormat({ data, columns, dataShow = false, name, emp
                                 fontSize="small"
                               />
                             ),
-                          }[header.column.getIsSorted() as string] ?? null }
+                          }[header.column.getIsSorted() as string] ?? null}
                         </Stack>
-                      ) }
+                      )}
                     </TableCell>
-                  )) }
+                  ))}
                 </TableRow>
-              )) }
+              ))}
             </TableHead>
             <TableBody>
-              { table.getRowModel().rows.map((row: any) => (
-                <TableRow key={ row.id }>
-                  { row.getVisibleCells().map((cell: any) => (
+              {table.getRowModel().rows.map((row: any) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell: any) => (
                     <TableCell
-                      sx={ {
+                      sx={{
                         overflowWrap: "break-word",
                         maxWidth: "500px",
-                      } }
-                      key={ cell.id }
+                      }}
+                      key={cell.id}
                     >
-                      { flexRender(
+                      {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
-                      ) }
+                      )}
                     </TableCell>
-                  )) }
+                  ))}
                 </TableRow>
-              )) }
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -176,54 +212,52 @@ export default function TableFormat({ data, columns, dataShow = false, name, emp
 
         <Stack
           direction="row"
-          gap={ 2 }
+          gap={2}
           alignItems="center"
           justifyContent="space-between"
         >
           <Pagination
-            count={ table.getPageCount() }
-            page={ table.getState().pagination.pageIndex + 1 }
-            onChange={ handlePageChange }
+            count={table.getPageCount()}
+            page={table.getState().pagination.pageIndex + 1}
+            onChange={handlePageChange}
             showFirstButton
             showLastButton
           />
 
-          <Stack direction="row" flex={ 1 } justifyContent="flex-end" gap={ 2 }>
-            <Stack direction="row" alignItems="center" gap={ 2 }>
+          <Stack direction="row" flex={1} justifyContent="flex-end" gap={2}>
+            <Stack direction="row" alignItems="center" gap={2}>
               <Typography>Page</Typography>
-              <Typography fontWeight={ 500 }>
-                { table.getState().pagination.pageIndex + 1 } of{ " " }
-                { table.getPageCount() }
+              <Typography fontWeight={500}>
+                {table.getState().pagination.pageIndex + 1} of{" "}
+                {table.getPageCount()}
               </Typography>
             </Stack>
             <Divider orientation="vertical" />
-            <Typography display="flex" gap={ 1 } alignItems="center">
+            <Typography display="flex" gap={1} alignItems="center">
               Go to page:
               <TextField
                 size="small"
                 type="number"
-                defaultValue={ table.getState().pagination.pageIndex + 1 }
-                onChange={ (e) => {
-                  const page = e.target.value
-                    ? Number(e.target.value) - 1
-                    : 0;
+                defaultValue={table.getState().pagination.pageIndex + 1}
+                onChange={(e) => {
+                  const page = e.target.value ? Number(e.target.value) - 1 : 0;
                   table.setPageIndex(page);
-                } }
+                }}
                 className="border p-1 rounded w-16"
               />
             </Typography>
             <Select
               size="small"
-              value={ table.getState().pagination.pageSize }
-              onChange={ (e) => {
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => {
                 table.setPageSize(Number(e.target.value));
-              } }
+              }}
             >
-              { [5, 10, 20, 30, 40, 50].map((pageSize) => (
-                <MenuItem key={ pageSize } value={ pageSize }>
-                  Show { pageSize }
+              {[5, 10, 20, 30, 40, 50].map((pageSize) => (
+                <MenuItem key={pageSize} value={pageSize}>
+                  Show {pageSize}
                 </MenuItem>
-              )) }
+              ))}
             </Select>
           </Stack>
         </Stack>
