@@ -19,7 +19,9 @@ import NewDevicesList from "./features/employees/components/new-devices-list";
 import LeaveApplication from "./pdf/application";
 import UserManage from "./pages/usermanage";
 import JobList from "./features/recruitment/pages/job-list";
+import JobDetail from "./features/recruitment/pages/job-detail";
 import Applicants from "./features/recruitment/pages/applicants";
+import ApplicantDetail from "./features/recruitment/pages/applicant-detail";
 
 const router = createBrowserRouter([
   {
@@ -72,8 +74,16 @@ const router = createBrowserRouter([
         element: <JobList />
       },
       {
+        path: "recruitment/jobs/:id",
+        element: <JobDetail />
+      },
+      {
         path: "recruitment/applicants",
         element: <Applicants />,
+      },
+      {
+        path: "recruitment/applicants/:id",
+        element: <ApplicantDetail />,
       },
       {
         path: "locations",

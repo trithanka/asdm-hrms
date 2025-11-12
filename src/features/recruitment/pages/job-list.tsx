@@ -154,7 +154,7 @@ export default function JobList() {
   }
     
 return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
+    <Paper elevation={0} sx={{ bgcolor: "transparent" }}>
       {/* Header */}
       <Stack
         direction="row"
@@ -182,7 +182,12 @@ return (
 
       {/* Search and Filters */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Stack direction={{ xs: "column", lg: "row" }} spacing={3}>
+        <Stack 
+          direction={{ xs: "column", lg: "row" }} 
+          spacing={3}
+          justifyContent="space-between"
+          alignItems={{ xs: "stretch", lg: "center" }}
+        >
           {/* Search Input */}
           <Box sx={{ flex: 1, maxWidth: 400 }}>
             <Input
@@ -268,34 +273,37 @@ return (
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   #
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Job Post Name
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Designation
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Department
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
-                  No. of Posts
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
+                  Vacancies
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
+                  Total Applications
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Application Start
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Application End
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Interview Date
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Status
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
                   Action
                 </TableCell>
               </TableRow>
@@ -324,7 +332,8 @@ return (
                       (dept) => dept.internalDepartmentId === job.fklDepartmentId
                     )?.internalDepartmentName || "N/A"}
                   </TableCell>
-                  <TableCell>{job.iNumberOfPost || "N/A"}</TableCell>
+                  <TableCell>{job.iNumberOfPost || "0"}</TableCell>
+                  <TableCell>{job.totalApplicants || "0"}</TableCell>
                   <TableCell>
                     {job.dtApplicationStartDate
                       ? formatDate(job.dtApplicationStartDate)
@@ -347,6 +356,8 @@ return (
                         height: 20,
                         fontSize: "0.7rem",
                         "& .MuiChip-label": { px: 1 },
+                        bgcolor: job.bEnable === 1 ? "rgba(46, 125, 50, 0.1)" : "rgba(158, 158, 158, 0.1)",
+                        color: job.bEnable === 1 ? "rgb(46, 125, 50)" : "rgb(97, 97, 97)",
                       }}
                     />
                   </TableCell>
@@ -372,8 +383,6 @@ return (
               justifyContent="space-between"
               alignItems="center"
               p={2}
-              borderTop={1}
-              borderColor="divider"
             >
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Typography variant="body2" color="text.secondary">
@@ -454,5 +463,5 @@ return (
       />
     </Paper>
   );
-}
+  }
   

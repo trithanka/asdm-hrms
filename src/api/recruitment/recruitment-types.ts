@@ -23,6 +23,7 @@ export interface IJobPost {
   vsJobAddress: string;
   vsDesignationName: string;
   vsQualification: string;
+  totalApplicants?: number;
 }
 
 export interface IJobPostResponse {
@@ -108,5 +109,88 @@ export interface IApplicantResponse {
   statusCode: number;
   status: string;
   data: IApplicant[];
+}
+
+export interface IApplicantDetails {
+  applicationId: number;
+  name: string;
+  email: string;
+  mobile: string;
+  address: string;
+  experienceYears: number;
+  docPath: string;
+  coverLetter: string;
+  applicationStatus: string;
+  appliedAt: string;
+  applicantQualification: string;
+}
+
+export interface IJobDetails {
+  jobPostId: number;
+  jobPostName: string;
+  jobDescription: string;
+  numberOfPost: number;
+  minimumExperience: number;
+  applicationStartDate: string;
+  applicationEndDate: string;
+  interviewType: string;
+  interviewDate: string;
+  interviewAddress: string;
+  docPath: string;
+  designationName: string;
+  postQualification: string;
+  departmentName: string;
+}
+
+export interface IApplicantDetailResponse {
+  message: string | null;
+  statusCode: number;
+  status: string;
+  data: {
+    applicantDetails: IApplicantDetails;
+    jobDetails: IJobDetails;
+  };
+}
+
+export interface IJobPostDetailApplicant {
+  id: number;
+  name: string;
+  email: string;
+  mobile: string;
+  address: string;
+  experience: number;
+  document: string;
+  coverLetter: string;
+  status: string;
+  qualification: string;
+  appliedAt: string;
+}
+
+export interface IJobPostDetail {
+  id: number;
+  name: string;
+  description: string;
+  numberOfPost: number;
+  minExperience: number;
+  startDate: string;
+  endDate: string;
+  interviewType: string;
+  interviewAt: string;
+  interviewAddress: string;
+  postStatus: string;
+  jobDocPath: string;
+  designation: string;
+  qualification: string;
+  department: string;
+}
+
+export interface IJobPostDetailResponse {
+  message: string | null;
+  statusCode: number;
+  status: string;
+  data: {
+    jobPost: IJobPostDetail;
+    applicants: IJobPostDetailApplicant[];
+  };
 }
 

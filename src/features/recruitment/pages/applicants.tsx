@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -21,6 +22,7 @@ import { fetchAllApplicants } from "../../../api/recruitment/recruitment-api";
 import { formatDate } from "../../../utils/formatter";
 
 export default function Applicants() {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -83,7 +85,7 @@ export default function Applicants() {
   }
 
   return (
-    <Paper sx={{ p: { xs: 2, md: 3 } }}>
+    <Paper elevation={0} sx={{ bgcolor: "transparent", p: { xs: 2, md: 3 } }}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -170,6 +172,20 @@ export default function Applicants() {
                         height: 20,
                         fontSize: "0.7rem",
                         "& .MuiChip-label": { px: 1 },
+                        bgcolor: getStatusColor(applicant.vsApplicationStatus || "") === "success" 
+                          ? "rgba(46, 125, 50, 0.1)" 
+                          : getStatusColor(applicant.vsApplicationStatus || "") === "warning"
+                          ? "rgba(237, 108, 2, 0.1)"
+                          : getStatusColor(applicant.vsApplicationStatus || "") === "error"
+                          ? "rgba(211, 47, 47, 0.1)"
+                          : "rgba(158, 158, 158, 0.1)",
+                        color: getStatusColor(applicant.vsApplicationStatus || "") === "success"
+                          ? "rgb(46, 125, 50)"
+                          : getStatusColor(applicant.vsApplicationStatus || "") === "warning"
+                          ? "rgb(237, 108, 2)"
+                          : getStatusColor(applicant.vsApplicationStatus || "") === "error"
+                          ? "rgb(211, 47, 47)"
+                          : "rgb(97, 97, 97)",
                       }}
                     />
                   </TableCell>
@@ -178,8 +194,7 @@ export default function Applicants() {
                       size="small"
                       sx={{ color: "text.secondary" }}
                       onClick={() => {
-                        // TODO: Navigate to applicant detail page
-                        console.log("View applicant:", applicant.pklApplicationId);
+                        navigate(`/recruitment/applicants/${applicant.pklApplicationId}`);
                       }}
                     >
                       <VisibilityIcon fontSize="small" />
@@ -276,4 +291,5 @@ export default function Applicants() {
       )}
     </Paper>
   );
-}
+  }
+  

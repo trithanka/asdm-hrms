@@ -5,6 +5,8 @@ import {
   IRecruitmentMasterData,
   ICreateJobPost,
   IApplicantResponse,
+  IApplicantDetailResponse,
+  IJobPostDetailResponse,
 } from "./recruitment-types";
 
 export async function fetchAllJobPosts(
@@ -50,6 +52,31 @@ export async function createJobPost(data: ICreateJobPost, files?: File[]) {
 
 export async function fetchAllApplicants(): Promise<IApplicantResponse> {
   const response = await API.post("Requitement/all-applicants");
+  return response.data;
+}
+
+export async function fetchApplicantById(
+  id: number | string
+): Promise<IApplicantDetailResponse> {
+  const response = await API.get(`Requitement/get-by-applicant/${id}`);
+  return response.data;
+}
+
+export async function updateApplicantStatus(
+  id: number | string,
+  status: "1" | "2" // 1 for shortlist, 2 for rejected
+) {
+  const response = await API.post(`Requitement/update-applicant-status`, {
+    applicantId: id.toString(),
+    status: status,
+  });
+  return response.data;
+}
+
+export async function fetchJobPostById(
+  id: number | string
+): Promise<IJobPostDetailResponse> {
+  const response = await API.get(`Requitement/get-by-post/${id}`);
   return response.data;
 }
 
