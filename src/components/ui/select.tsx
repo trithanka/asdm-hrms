@@ -15,6 +15,7 @@ interface InputProps {
   disabled?: boolean;
   options: IOption[];
   required?: boolean;
+  placeholder?: string;
 }
 
 export default function Select({
@@ -25,6 +26,7 @@ export default function Select({
   disabled = false,
   options,
   required = false,
+  placeholder,
 }: InputProps) {
 
   return (
@@ -69,9 +71,17 @@ export default function Select({
               fullWidth={ fullWidth }
               error={ !!error?.message }
               defaultValue={ "none" }
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                    overflow: 'auto',
+                  },
+                },
+              }}
             >
               <MenuItem selected disabled value={ "none" } sx={ { textTransform: "capitalize" } }>
-                Select { name }
+                { placeholder || `Select ${name}` }
               </MenuItem>
               { options.map((option, idx: number) => (
                 <MenuItem key={ idx } value={ option.value }>

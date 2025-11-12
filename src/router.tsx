@@ -18,6 +18,8 @@ import ReportPage from "./features/report/page";
 import NewDevicesList from "./features/employees/components/new-devices-list";
 import LeaveApplication from "./pdf/application";
 import UserManage from "./pages/usermanage";
+import JobList from "./features/recruitment/pages/job-list";
+import Applicants from "./features/recruitment/pages/applicants";
 
 const router = createBrowserRouter([
   {
@@ -64,6 +66,14 @@ const router = createBrowserRouter([
       {
         path: "leaves",
         element: <Leaves />,
+      },
+      {
+        path: "recruitment/jobs",
+        element: <JobList />
+      },
+      {
+        path: "recruitment/applicants",
+        element: <Applicants />,
       },
       {
         path: "locations",

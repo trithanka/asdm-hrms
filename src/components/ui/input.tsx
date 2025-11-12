@@ -16,6 +16,7 @@ interface InputProps {
   inputLength?: number;
   required?: boolean;
   maxDate?: string;
+  minDate?: string;
 }
 
 export default function Input({
@@ -32,6 +33,7 @@ export default function Input({
   inputLength = 10,
   required = false,
   maxDate,
+  minDate,
 }: InputProps) {
 
   return (
@@ -70,6 +72,7 @@ export default function Input({
             InputProps={ {
               inputProps: {
                 max: type == "date" && maxDate ? maxDate : undefined,
+                min: type == "date" && minDate ? minDate : undefined,
               }
             } }
           />
