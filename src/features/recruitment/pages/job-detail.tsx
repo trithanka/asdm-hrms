@@ -211,7 +211,7 @@ export default function JobDetail() {
             <CardContent sx={{ p: 2 }}>
               <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
                 <AccessTimeIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-                <Typography variant="h7" fontWeight={600}>
+                <Typography variant="subtitle1" fontWeight={600}>
                   Hiring period
                 </Typography>
               </Stack>
@@ -251,7 +251,7 @@ export default function JobDetail() {
             <CardContent sx={{ p: 2 }}>
               <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
                 <InfoIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-                <Typography variant="h7" fontWeight={600}>
+                <Typography variant="subtitle1" fontWeight={600}>
                   About this job
                 </Typography>
               </Stack>
@@ -299,15 +299,19 @@ export default function JobDetail() {
               <CardContent sx={{ p: 2 }}>
                 <Stack direction="row" alignItems="center" spacing={1.5} mb={2}>
                   <DescriptionIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-                  <Typography variant="h7" fontWeight={600}>
+                  <Typography variant="subtitle1" fontWeight={600}>
                     Documents / Advertisements
                   </Typography>
                 </Stack>
                 <Divider sx={{ mb: 2.5 }} />
                 <Grid container spacing={2}>
                   {jobDocs.map((doc: any, index: number) => {
-                    const docUrl = typeof doc === "string" ? doc : doc.fileUrl || "";
+                    const docPath = typeof doc === "string" ? doc : doc.fileUrl || "";
                     const docName = typeof doc === "string" ? doc.split("/").pop() : doc.fileName || `Document ${index + 1}`;
+                    // Construct full URL with ds1.skillmissionassam.org domain
+                    const docUrl = docPath 
+                      ? (docPath.startsWith("http") ? docPath : `${import.meta.env.VITE_CDN_URL}${docPath.replace(/^\//, "")}`)
+                      : "";
                     
                     return (
                       <Grid item xs={6} sm={4} md={3} key={index}>
@@ -423,7 +427,7 @@ export default function JobDetail() {
             <Paper variant="outlined">
               <CardContent>
                 <Stack alignItems="center" justifyContent="center" py={4} spacing={2}>
-                  <Typography variant="h7" color="text.secondary">
+                  <Typography variant="subtitle1" color="text.secondary">
                     No Applicants Yet
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
