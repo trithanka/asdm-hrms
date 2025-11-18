@@ -431,7 +431,7 @@ export default function ApplicantDetail() {
                 {/* Header with Link */}
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                   <Typography variant="h6" fontWeight={600}>
-                    Job Post
+                    Applied Job
                   </Typography>
                   {jobDetails?.jobPostId && (
                     <Button
