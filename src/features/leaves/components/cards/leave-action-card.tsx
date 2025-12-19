@@ -42,9 +42,10 @@ export default function LeaveActionCard(prop: IProp) {
           direction="row"
           justifyContent="space-between"
           alignItems="center"
+          gap={ 2 }
         >
           {/* Profile */ }
-          <Stack direction="row" gap={ 2 } alignItems={ "center" }>
+          <Stack direction="row" gap={ 2 } alignItems={ "center" } minWidth={ 180 } flex={ 1 }>
             <Typography variant="body1" mr={ 2 } textAlign={ "center" }>
               { prop.index }
             </Typography>
@@ -60,7 +61,7 @@ export default function LeaveActionCard(prop: IProp) {
 
             </Stack>
           </Stack>
-          <Stack>
+          <Stack minWidth={ 100 } alignItems="center">
             <Typography variant="caption" align="center" color="primary.dark">
               Leave Type
             </Typography>
@@ -68,27 +69,23 @@ export default function LeaveActionCard(prop: IProp) {
               { prop?.leave?.type }
             </Typography>
           </Stack>
-          { prop?.leave?.startDate &&
-            <Stack>
-              <Typography variant="caption" align="center" color="primary.dark">
-                Start Date
-              </Typography>
-              <Typography variant="body2" fontWeight={ 700 }>
-                { formatDate(prop?.leave?.startDate) }
-              </Typography>
-            </Stack>
-          }
-          { prop?.leave?.endDate &&
-            <Stack>
-              <Typography variant="caption" align="center" color="primary.dark">
-                End Date
-              </Typography>
-              <Typography variant="body2" fontWeight={ 700 }>
-                { formatDate(prop?.leave?.endDate) }
-              </Typography>
-            </Stack>
-          }
-          <Stack>
+          <Stack minWidth={ 100 } alignItems="center">
+            <Typography variant="caption" align="center" color="primary.dark">
+              Start Date
+            </Typography>
+            <Typography variant="body2" fontWeight={ 700 } align="center">
+              { prop?.leave?.startDate ? formatDate(prop?.leave?.startDate) : "N/A" }
+            </Typography>
+          </Stack>
+          <Stack minWidth={ 100 } alignItems="center">
+            <Typography variant="caption" align="center" color="primary.dark">
+              End Date
+            </Typography>
+            <Typography variant="body2" fontWeight={ 700 } align="center">
+              { prop?.leave?.endDate ? formatDate(prop?.leave?.endDate) : "N/A" }
+            </Typography>
+          </Stack>
+          <Stack minWidth={ 80 } alignItems="center">
             <Typography variant="caption" align="center" color="primary.dark">
               Leave Days
             </Typography>
@@ -96,15 +93,15 @@ export default function LeaveActionCard(prop: IProp) {
               { prop?.leave?.leaveDuration }
             </Typography>
           </Stack>
-          <Stack>
+          <Stack minWidth={ 100 } alignItems="center">
             <Typography variant="caption" align="center" color="primary.dark">
               Applied On
             </Typography>
-            <Typography variant="body2" fontWeight={ 700 }>
+            <Typography variant="body2" fontWeight={ 700 } align="center">
               { formatDate(prop?.leave?.appliedDate) }
             </Typography>
           </Stack>
-          <Stack justifyContent="center" alignItems="center">
+          <Stack minWidth={ 120 } justifyContent="center" alignItems="center">
             <Typography variant="caption" align="center" color="text.dark">
               Supporting Document
             </Typography>
@@ -123,24 +120,16 @@ export default function LeaveActionCard(prop: IProp) {
                 </Typography>
               </MuiLink>
             ) : (
-              <Typography variant="caption" align="center">
+              <Typography variant="body2" fontWeight={ 500 } align="center">
                 N/A
               </Typography>
             ) }
-            {/* <Link
-              typography="caption"
-              href={prop?.leave?.supporting}
-              target="_blank"
-            >
-              {prop?.leave?.supporting ? "Supporting Document" : "N/A"}
-            </Link> */}
           </Stack>
-          { prop?.type === "pending" &&
-            <Stack justifyContent="center" alignItems="center">
-              <Typography variant="caption" align="center" color="text.dark">
-                Leave Application
-              </Typography>
-              {/* { prop?.leave?.supporting ? ( */ }
+          <Stack minWidth={ 120 } justifyContent="center" alignItems="center">
+            <Typography variant="caption" align="center" color="text.dark">
+              Leave Application
+            </Typography>
+            { prop?.type === "pending" ? (
               <Link
                 to={ `/application/${prop?.leave?.applicationId}` }
               >
@@ -152,27 +141,13 @@ export default function LeaveActionCard(prop: IProp) {
                   View & Download
                 </Typography>
               </Link>
-              {/* ) : ( */ }
-              {/* <Typography variant="caption" align="center">
+            ) : (
+              <Typography variant="body2" fontWeight={ 500 } align="center">
                 N/A
-              </Typography> */}
-              {/* ) } */ }
-            </Stack>
-          }
-          {/* <Stack>
-          <Typography
-            variant="body2"
-            fontWeight={700}
-            align="center"
-            color="primary"
-          >
-            5 days
-          </Typography>
-          <Typography variant="caption" color="GrayText" align="center">
-            Nov 23, 2023 - Nov 28, 2023
-          </Typography>
-        </Stack> */}
-          <Stack direction="row">
+              </Typography>
+            ) }
+          </Stack>
+          <Stack direction="row" minWidth={ 48 } justifyContent="center">
             <Tooltip title="More">
               <IconButton color="primary" onClick={ openDrawer }>
                 <ChevronRightIcon fontSize="small" color="inherit" />

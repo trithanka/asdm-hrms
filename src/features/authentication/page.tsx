@@ -61,7 +61,7 @@ export default function SignInPage() {
         localStorage.setItem("name", data.name);
 
         if (data.systemUser === true) {
-          navigate("/usermanage");
+          navigate("/");
         } else if (data.systemUser === false) {
           navigate("/");
         }

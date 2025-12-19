@@ -123,10 +123,10 @@ const router = createBrowserRouter([
     path: "login",
     element: <Auth />,
   },
-  {
-    path: "UserManage",
-    element: <UserManage />,
-  },
+  // {
+  //   path: "UserManage",
+  //   element: <UserManage />,
+  // },
  
  
 ]);
