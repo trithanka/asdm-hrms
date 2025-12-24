@@ -3,9 +3,10 @@ export const LEAVE_TYPE = {
   ML: "Medical Leave",
   RH: "Restricted Holiday",
   PL: "Parental Leave",
+  MTL: "Maternity Leave",
 } as const;
 
-export type LeaveType = "CL" | "ML" | "RH" | "PL";
+export type LeaveType = "CL" | "ML" | "RH" | "PL" | "MTL";
 
 export const MONTH_LIST = [
   { label: "January", id: 1 },

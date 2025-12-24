@@ -14,7 +14,7 @@ export async function fetchLeaves(type: LeaveType) {
 
 export async function fetchLeaveDetail(
   id: string | number,
-  type: "CL" | "ML" | "PL",
+  type: "CL" | "ML" | "PL" | "MTL" | "RH",
   tab: "pending" | "approved" | "reject",
   empCode?: any,
   appliedDate?: string
@@ -32,7 +32,7 @@ export async function fetchLeaveDetail(
     });
   }
   const response = await API.post(
-    type === "PL"
+    (type === "PL" || type === "MTL")
       ? "LeaveApproval/leavedetails/parental"
       : "LeaveApproval/leave/detail",
     requestData
