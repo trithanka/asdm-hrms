@@ -15,6 +15,7 @@ import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 import GroupIcon from "@mui/icons-material/Group";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import NavItem from "./nav-item";
 
 interface INavList {
@@ -103,6 +104,13 @@ export default function NavList({ open }: INavList) {
         open={open}
         label="Device Requests"
         icon={<DeviceUnknownIcon color="primary" />}
+      />
+
+      <NavItem
+        link="/time-management"
+        open={open}
+        label="Time Management"
+        icon={<AccessTimeIcon color="info" />}
       />
     </List>
   );

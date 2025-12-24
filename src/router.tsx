@@ -18,6 +18,7 @@ import ReportPage from "./features/report/page";
 import NewDevicesList from "./features/employees/components/new-devices-list";
 import LeaveApplication from "./pdf/application";
 import UserManage from "./pages/usermanage";
+import TimeManagement from "./pages/time-management";
 import JobList from "./features/recruitment/pages/job-list";
 import JobDetail from "./features/recruitment/pages/job-detail";
 import Applicants from "./features/recruitment/pages/applicants";
@@ -27,21 +28,21 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <RequireAuth loginPath={ "/login" }>
+      <RequireAuth loginPath={"/login"}>
         <RootLayout />
       </RequireAuth>
     ),
     errorElement: <ErrorPage />,
 
-    
+
     children: [
       {
-        
+
         index: true,
         element: <Home />,
       },
-      
-    
+
+
       {
         path: "employees",
         element: <Outlet />,
@@ -58,7 +59,7 @@ const router = createBrowserRouter([
             path: "register",
             element: <AddEmployee />,
           },
-         
+
           {
             path: ":empId",
             element: <EmployeeDetail />,
@@ -117,6 +118,10 @@ const router = createBrowserRouter([
         path: "application/:id",
         element: <LeaveApplication />
       },
+      {
+        path: "time-management",
+        element: <TimeManagement />
+      },
     ],
   },
   {
@@ -127,8 +132,8 @@ const router = createBrowserRouter([
   //   path: "UserManage",
   //   element: <UserManage />,
   // },
- 
- 
+
+
 ]);
 
 export default router;

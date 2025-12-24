@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 
@@ -41,12 +41,11 @@ export default function MonthlyAttendance() {
   const [filter, setFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [staff, setStaff] = useState("present");
-  const [departmentfiltering,setDepartmentFiltering] = useState("");
+  const [departmentfiltering, setDepartmentFiltering] = useState("");
   const { departments } = useFilters();
 
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
-  
 
   const { isPending, data, refetch } = useQuery({
     queryKey: ["attendance", startDate, endDate, staff],
@@ -62,13 +61,102 @@ export default function MonthlyAttendance() {
 
       return res.data;
     },
-    retry: false,
-    enabled: !!startDate || !!endDate || !!staff,
+    // retry: false,
+    // enabled: !!startDate || !!endDate || !!staff,
   });
 
   useEffect(() => {
     refetch();
-  }, [startDate, endDate, refetch]);
+  }, [startDate, endDate, staff, refetch]);
+
+  const columnHelper = createColumnHelper<any>();
+
+  const columns = useMemo(() => {
+    if (staff === 'absent') {
+      return [
+        columnHelper.accessor((row) => row.id, {
+          id: "id",
+          cell: (info) => info.row.index + 1,
+          header: () => <span>Sl.No</span>,
+        }),
+        columnHelper.accessor("fullName", {
+          header: () => "Name",
+          cell: (info) => info.getValue(),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("empId", {
+          header: () => "Employee ID",
+          cell: (info) => info.getValue(),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("phone", {
+          header: () => "Phone Number",
+          cell: (info) => info.getValue(),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("designation", {
+          header: () => "Designation",
+          cell: (info) => info.getValue(),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("location", {
+          header: () => "Location",
+          cell: (info) => {
+            const location = info.getValue();
+            if (!location) return "N/A";
+            return location.split('\n')[0];
+          },
+          footer: (info) => info.column.id,
+        }),
+      ];
+    } else {
+      return [
+        columnHelper.accessor((row) => row.id, {
+          id: "id",
+          cell: (info) => info.row.index + 1,
+          header: () => <span>Sl.No</span>,
+        }),
+        columnHelper.accessor("attendanceDate", {
+          header: () => "Date",
+          cell: (info) => info.getValue() ? moment(info.getValue()).format("DD/MM/YYYY") : moment(startDate).format("DD/MM/YYYY"),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("fullName", {
+          header: () => "Name / Designation",
+          cell: (info) => (
+            <div>
+              <span>{info.getValue()}</span>
+              {info.row.original.designation && (
+                <span style={{ color: "gray", fontSize: "0.80rem" }}>
+                  {" / "}{info.row.original.designation}
+                </span>
+              )}
+            </div>
+          ),
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("location", {
+          header: () => "Location",
+          cell: (info) => {
+            const location = info.getValue();
+            if (!location) return "N/A";
+            return location.split('\n')[0];
+          },
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("checkIn", {
+          header: () => "Check In",
+          cell: (info) => info.getValue() ? moment(info.getValue(), "HH:mm:ss").format("hh:mm A") : "N/A",
+          footer: (info) => info.column.id,
+        }),
+        columnHelper.accessor("checkOut", {
+          header: () => "Check Out",
+          cell: (info) => info.getValue() ? moment(info.getValue(), "HH:mm:ss").format("hh:mm A") : "N/A",
+          footer: (info) => info.column.id,
+        }),
+      ];
+    }
+  }, [staff, startDate]);
 
   const table = useReactTable({
     data: data && data.data,
@@ -88,16 +176,16 @@ export default function MonthlyAttendance() {
     table.setPageIndex(value - 1);
   };
 
-  const handleReset =()=>{
+  const handleReset = () => {
     setDepartmentFiltering("");
-    setStartDate("");
+    setStartDate(new Date().toISOString().split("T")[0]);
     setEndDate("");
     setFilter("")
   }
 
   return (
     <>
-      <LeaveDetailCard title="Monthly Attendance">
+      <LeaveDetailCard title="Date Wise Attendance">
         <Box
           display={"flex"}
           alignItems={"center"}
@@ -121,33 +209,33 @@ export default function MonthlyAttendance() {
               }}
             />
           </div>
-            { departments?.length &&
-              <div style={ { display: "flex", alignItems: "center" } }>
-                <div>
-                  <Typography variant="caption" fontWeight={ 500 } gutterBottom>
-                    Department
-                  </Typography>
-                  <Grid item xs={ 4 } sm={ 4 }>
-                    <Select
-                      size="small"
-                      value={ departmentfiltering ?? "" }
-                      onChange={ (e) => setDepartmentFiltering(e.target.value) }
-                      displayEmpty
-                    >
+          {departments?.length &&
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div>
+                <Typography variant="caption" fontWeight={500} gutterBottom>
+                  Department
+                </Typography>
+                <Grid item xs={4} sm={4}>
+                  <Select
+                    size="small"
+                    value={departmentfiltering ?? ""}
+                    onChange={(e) => setDepartmentFiltering(e.target.value)}
+                    displayEmpty
+                  >
                     <MenuItem value="" disabled>
                       Select Department
                     </MenuItem>
-                      { departments?.map((option: any, idx: number) => (
-                        <MenuItem key={ idx } value={ option.label }>
-                          { option.label }
-                        </MenuItem>
-                      )) }
-                    </Select>
-                  </Grid>
-                </div>
-                
+                    {departments?.map((option: any, idx: number) => (
+                      <MenuItem key={idx} value={option.label}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
               </div>
-            }
+
+            </div>
+          }
           <div
             style={{ display: "flex", flexDirection: "column", width: "20%" }}
           >
@@ -168,28 +256,28 @@ export default function MonthlyAttendance() {
             </select>
           </div>
 
-          <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
-          <label htmlFor="date">From</label>
-          <input type="date" value={ startDate } onChange={ (e) => setStartDate(e.target.value) } max={ new Date().toISOString().split("T")[0] } style={ {
-            paddingInline: "1rem",
-            paddingBlock: "0.5rem",
-            border: "0.4px solid gray",
-            borderRadius: "5px",
-          } } />
-        </div>
+          <div style={{ display: "flex", flexDirection: "column", width: "13%" }}>
+            <label htmlFor="date">From</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} max={new Date().toISOString().split("T")[0]} style={{
+              paddingInline: "1rem",
+              paddingBlock: "0.5rem",
+              border: "0.4px solid gray",
+              borderRadius: "5px",
+            }} />
+          </div>
 
-        <div style={ { display: "flex", flexDirection: "column", width: "13%" } }>
-          <label htmlFor="date">To</label>
-          <input type="date" value={ endDate } onChange={ (e) => setEndDate(e.target.value) } max={ new Date().toISOString().split("T")[0] } style={ {
-            paddingInline: "1rem",
-            paddingBlock: "0.5rem",
-            border: "0.4px solid gray",
-            borderRadius: "5px",
-          } } />
-        </div>
-        <Button variant="outlined" onClick={handleReset} sx={{marginTop:"22px"}}>
+          <div style={{ display: "flex", flexDirection: "column", width: "13%" }}>
+            <label htmlFor="date">To</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} max={new Date().toISOString().split("T")[0]} style={{
+              paddingInline: "1rem",
+              paddingBlock: "0.5rem",
+              border: "0.4px solid gray",
+              borderRadius: "5px",
+            }} />
+          </div>
+          <Button variant="outlined" onClick={handleReset} sx={{ marginTop: "22px" }}>
             Reset
-        </Button>
+          </Button>
         </Box>
 
         {isPending ? (
@@ -326,77 +414,4 @@ export default function MonthlyAttendance() {
     </>
   );
 }
-const columnHelper = createColumnHelper<any>();
 
-const columns = [
-  columnHelper.accessor((row) => row.id, {
-    id: "id",
-    cell: (info) => info.row.index + 1,
-    header: () => <span>Sl.No</span>,
-  }),
-  columnHelper.accessor("empId", {
-    header: () => "Employee ID",
-    cell: (info) => info.getValue(),
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor(
-    (row) => `${row.firstName} ${row.middleName} ${row.lastName}`,
-    {
-      id: "name",
-      header: () => "Name",
-      cell: (info) => info.getValue(),
-      footer: (info) => info.column.id,
-    }
-  ),
-  columnHelper.accessor("designation", {
-    header: () => "Designation",
-    cell: (info) => info.getValue() ?? "N/A",
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor("phone", {
-    header: () => "Phone Number",
-    cell: (info) => info.getValue(),
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor((row) => row.punchIn, {
-    id: "punchInDate",
-    cell: (info) =>
-      info.getValue()
-        ? `${moment.utc(info.getValue()).format("DD/MM/YYYY")}`
-        : "N/A",
-    header: () => <span>Date</span>,
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor((row) => row.punchIn, {
-    id: "punchIn",
-    cell: (info) =>
-      info.getValue()
-        ? `${moment.utc(info.getValue()).format("hh:mm A")} (${info.row.original.punchInOutdoor === 1
-          ? "Indoor"
-          : "Outdoor"
-        })`
-        : null,
-    header: () => <span>Punch In</span>,
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor((row) => row.punchOut, {
-    id: "punchOut",
-    cell: (info) =>
-      info.getValue()
-        ? `${moment.utc(info.getValue()).format("hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
-        } )`
-        : "N/A",
-    header: () => <span>Punch Out</span>,
-    footer: (info) => info.column.id,
-  }),
-  columnHelper.accessor("location", {
-    header: () => "Location",
-    cell: (info) => {
-      const location = info.getValue();
-      // Get the first 3 words and add ellipsis
-      const truncatedLocation = location.split(' ').slice(0, 3).join(' ') + "...";
-      return truncatedLocation;
-    },
-    footer: (info) => info.column.id,
-  }),
-];
