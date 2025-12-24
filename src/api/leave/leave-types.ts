@@ -12,7 +12,7 @@ export interface ILeave {
   reason: string;
   leaveDate: string;
   supporting: string;
-  type: "CL" | "ML" | "PL";
+  type: "CL" | "ML" | "PL" | "MTL" | "RH";
 }
 
 export type LeaveType = "pending" | "approved" | "rejected";
@@ -25,15 +25,33 @@ export interface LeaveDetailData {
     duration: number;
     reason: string;
     leaveDate: string;
-    leaveType: "CL" | "ML" | "PL";
+    leaveType: "CL" | "ML" | "PL" | "MTL" | "RH";
     pending: number;
     employeeId: number;
     name: string;
     phoneNumber: string;
     email: string;
+    // Leave balances (remaining)
     parentalLeave: number;
     sickLeave: number;
     casualLeave: string;
+    unpaidLeave: number;
+    restrictedLeave: number;
+    maternityLeave: number;
+    // Remaining leave properties (used in UI)
+    remaingCasualLeave?: number;
+    remaingSickLeave?: number;
+    remaingParentalLeave?: number;
+    remaingUnpaidLeave?: number;
+    remaingRestrictedLeave?: number;
+    remaingMaternityLeave?: number;
+    // Assigned leave properties (used in UI)
+    AssignedCasualLeave?: number;
+    AssignedSickLeave?: number;
+    AssignedParentalLeave?: number;
+    AssignedunpaidLeave?: number;
+    AssignedrestrictedLeave?: number;
+    AssignedMaternityLeave?: number;
     tempApproval: number;
   };
   leaveHistory: {
@@ -50,7 +68,7 @@ export interface LeaveDetailData {
 
 export interface ILeaveApproveParam {
   id: string | number;
-  type: "CL" | "ML" | "PL";
+  type: "CL" | "ML" | "PL" | "MTL" | "RH";
   employeeId: number;
   reason: string | null;
   file?: File | null;
@@ -58,14 +76,14 @@ export interface ILeaveApproveParam {
 
 export interface ITempLeaveApproveParam {
   id: string | number; // Leave application ID
-  type: "CL" | "ML" | "PL";
+  type: "CL" | "ML" | "PL" | "MTL" | "RH";
   Tapprove: 1 | 0; // Approval status: 1 for approve, 0 for reject
   reason: string | null;
 }
 
 export interface ILeaveSingle {
   leaveDate: string;
-  leaveType: "CL" | "ML" | "PL";
+  leaveType: "CL" | "ML" | "PL" | "MTL" | "RH";
   reason: string;
   status: string;
 }

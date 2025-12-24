@@ -4,7 +4,7 @@ import { fetchLeaveDetail } from "../../../api/leave/leave-api";
 
 export default function useLeaveDetail(
   id: string | number,
-  leave: "CL" | "ML" | "PL",
+  leave: "CL" | "ML" | "PL" | "MTL" | "RH",
   tab: any,
   empCode?: any,
   appliedDate?: string
