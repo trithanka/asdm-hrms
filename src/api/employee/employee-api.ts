@@ -20,15 +20,40 @@ export async function fetchEmployees(): Promise<{
   return response.data;
 }
 
-export async function fetchDevices(id?: number): Promise<{
+export async function fetchDevices(
+  id?: number,
+  deviceStatus?: string,
+  page?: number,
+  limit?: number
+): Promise<{
   deviceList: IDevice[];
+  count?: number; // Added count to the return type
+  pages?: number; // Added pages to the return type
+  total?: number; // Added total to the return type
   status: IStatus;
 }> {
   if (id !== undefined) {
     const response = await API.post("EmployeeManagement/device/get", { id });
     return response.data;
   } else {
-    const response = await API.post("EmployeeManagement/device/getAll");
+    const response = await API.post("EmployeeManagement/device/getAll", {
+      deviceStatus,
+      page,
+      limit,
+    });
+
+
+    // Handle nested data structure
+    if (response.data?.data?.deviceList) {
+      return {
+        ...response.data,
+        deviceList: response.data.data.deviceList,
+        count: response.data.data.count, // Ensure count is returned if present
+        pages: response.data.data.pages, // Ensure pages is returned if present
+        total: response.data.data.total, // Ensure total is returned if present
+      };
+    }
+
     return response.data;
   }
 }

@@ -25,6 +25,13 @@ export interface IDevice {
   id: number;
   uuid: string;
   status: 0 | 1;
+  pendingDeviceName?: string;
+  pendingDevicePklId?: number;
+  pendingDeviceUUID?: string;
+  activeDeviceName?: string;
+  activeDevicePklId?: number;
+  activeDeviceUUID?: string;
+  approvalType?: string;
 }
 
 export interface IAttendance {

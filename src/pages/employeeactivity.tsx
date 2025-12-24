@@ -15,7 +15,7 @@ export default function EmployeeActivity() {
 
   const param = searchParams.get("staff");
 
-  if (!param) return <>{ navigate(-1) }</>;
+  if (!param) return <>{navigate(-1)}</>;
 
   const { isLoading, data } = useQuery({
     queryKey: [`staff${param}`],
@@ -30,16 +30,12 @@ export default function EmployeeActivity() {
       cell: (info) => info.row.index + 1,
       header: () => <span>Sl.No</span>,
     }),
-    columnHelper.accessor((row) => `${row.firstName} ${row.lastName}`, {
+    columnHelper.accessor("fullName", {
       id: "name",
       header: () => "Name",
       cell: (info) => info.getValue(),
       footer: (info) => info.column.id,
     }),
-    // columnHelper.accessor("lastName", {
-    //   header: () => "Last Name",
-    //   cell: (info) => info.getValue(),
-    // }),
     columnHelper.accessor("empId", {
       header: () => "Employee Id",
       cell: (info) => info.getValue(),
@@ -73,15 +69,14 @@ export default function EmployeeActivity() {
         columnHelper.accessor("registrationId", {
           header: () => "View",
           cell: (info) => {
-            const navigate = useNavigate();
             return (
               <Button
                 variant="contained"
-                sx={ {
+                sx={{
                   paddingTop: 1,
                   paddingBottom: 1,
-                } }
-                onClick={ () => navigate(`/employees/${info.getValue()}`) }
+                }}
+                onClick={() => navigate(`/employees/${info.getValue()}`)}
               >
                 <FaEye />
               </Button>
@@ -92,73 +87,76 @@ export default function EmployeeActivity() {
       : []),
     ...(param === "present"
       ? [
-        columnHelper.accessor("punchIn", {
-          header: () => "Punch In",
-          cell: (info) =>
-            info.getValue()
-              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} (${info.row.original.punchInOutdoor === 1
-                ? "Indoor"
-                : "Outdoor"
-              })`
-              : null,
+        columnHelper.accessor("attendanceDate", {
+          header: () => "Date",
+          cell: (info) => info.getValue() ? moment(info.getValue()).format("DD/MM/YYYY") : "N/A",
         }),
       ]
       : []),
     ...(param === "present"
       ? [
-        columnHelper.accessor("punchOut", {
-          header: () => "Punch Out",
+        columnHelper.accessor("checkIn", {
+          header: () => "Check In",
           cell: (info) =>
             info.getValue()
-              ? `${moment.utc(info.getValue()).format("DD/MM/YYYY hh:mm A")} ( ${info.row.original.punchOutOutdoor === 1 ? "Indoor" : "Outdoor"
-              } )`
-              : null,
+              ? `${moment(info.getValue(), "HH:mm:ss").format("hh:mm A")}`
+              : "N/A",
         }),
       ]
       : []),
-      columnHelper.accessor("location",{
-        header:()=>"Location",
-        cell: (info) => {
-          const location = info.getValue();
-          // Get the first 3 words and add ellipsis
-          const truncatedLocation = location.split(' ').slice(0, 3).join(' ') + "...";
-          return truncatedLocation;
-        },
-      })
+    ...(param === "present"
+      ? [
+        columnHelper.accessor("checkOut", {
+          header: () => "Check Out",
+          cell: (info) =>
+            info.getValue()
+              ? `${moment(info.getValue(), "HH:mm:ss").format("hh:mm A")}`
+              : "N/A",
+        }),
+      ]
+      : []),
+    columnHelper.accessor("location", {
+      header: () => "Location",
+      cell: (info) => {
+        const location = info.getValue();
+        if (!location) return "N/A";
+        return location.split('\n')[0];
+      },
+    })
   ];
 
   return (
     <>
-      { isLoading ? (
+      {isLoading ? (
         <p>Loading...</p>
       ) : data.data ? (
         <div>
           <Box
-            display={ "flex" }
-            alignItems={ "center" }
-            justifyContent={ "space-between" }
+            display={"flex"}
+            alignItems={"center"}
+            justifyContent={"space-between"}
           >
             <h2>
-              { param == "present"
+              {param == "present"
                 ? "Present Employees Data"
                 : param == "absent"
                   ? "Absent Employees Data"
                   : param == "leave"
                     ? "Leave Employees Data"
-                    : null }{ " " }
-              ({ moment(Date.now()).format("DD/MM/YYYY") })
+                    : null}{" "}
+              ({moment(Date.now()).format("DD/MM/YYYY")})
             </h2>
             <BackButton />
           </Box>
           <EmployeeActivityTable
-            columns={ columns }
-            data={ data?.data }
-            route={ param }
+            columns={columns}
+            data={data?.data}
+            route={param}
           />
         </div>
       ) : (
         <p>Something went wrong</p>
-      ) }
+      )}
     </>
   );
 }

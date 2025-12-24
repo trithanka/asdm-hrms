@@ -21,53 +21,51 @@ export default function NavItem({ open = true, label, icon, link }: INavItem) {
 
   return (
     <ListItem disablePadding sx={{ display: "block" }}>
-      <NavLink to={link} style={{ textDecoration: "none" }}>
-        {({ isActive }) => (
-          <ListItemButton
-            component={NavLink}
-            selected={isActive}
-            to={link}
+      <ListItemButton
+        component={NavLink}
+        to={link}
+        sx={{
+          minHeight: 48,
+          justifyContent: open ? "initial" : "center",
+          px: 2.5,
+          color: theme.palette.text.primary,
+          "&.active": {
+            backgroundColor: theme.palette.action.selected,
+          },
+        }}
+      >
+        {open ? (
+          <ListItemIcon
             sx={{
-              minHeight: 48,
-              justifyContent: open ? "initial" : "center",
-              px: 2.5,
-              color: theme.palette.text.primary,
+              minWidth: 0,
+              mr: open ? 3 : "auto",
+              justifyContent: "center",
             }}
           >
-            {open ? (
-              <ListItemIcon
-                sx={{
-                  minWidth: 0,
-                  mr: open ? 3 : "auto",
-                  justifyContent: "center",
-                }}
-              >
-                {icon}
-              </ListItemIcon>
-            ) : (
-              <Tooltip title={label} placement="right-start">
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: open ? 3 : "auto",
-                    justifyContent: "center",
-                  }}
-                >
-                  {icon}
-                </ListItemIcon>
-              </Tooltip>
-            )}
-            <ListItemText
-              primary={label}
-              sx={{ opacity: open ? 1 : 0, textDecoration: "none" }}
-              primaryTypographyProps={{
-                fontWeight: 500,
-                fontSize: theme.typography.subtitle2.fontSize,
+            {icon}
+          </ListItemIcon>
+        ) : (
+          <Tooltip title={label} placement="right-start">
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: open ? 3 : "auto",
+                justifyContent: "center",
               }}
-            />
-          </ListItemButton>
+            >
+              {icon}
+            </ListItemIcon>
+          </Tooltip>
         )}
-      </NavLink>
+        <ListItemText
+          primary={label}
+          sx={{ opacity: open ? 1 : 0, textDecoration: "none" }}
+          primaryTypographyProps={{
+            fontWeight: 500,
+            fontSize: theme.typography.subtitle2.fontSize,
+          }}
+        />
+      </ListItemButton>
     </ListItem>
   );
 }
