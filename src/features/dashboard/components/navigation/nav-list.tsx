@@ -18,6 +18,8 @@ import GroupIcon from "@mui/icons-material/Group";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import NavItem from "./nav-item";
 
+import { FaRupeeSign } from "react-icons/fa";
+
 interface INavList {
   open: boolean;
 }
@@ -111,6 +113,14 @@ export default function NavList({ open }: INavList) {
         open={open}
         label="Time Management"
         icon={<AccessTimeIcon color="info" />}
+      />
+
+
+       <NavItem
+        link="/salary-transfer"
+        open={open}
+        label="Monthly Salary Transfer"
+        icon={<FaRupeeSign color="info" />}
       />
     </List>
   );
