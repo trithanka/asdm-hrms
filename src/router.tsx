@@ -17,12 +17,13 @@ import MonthlyAttendance from "./features/dashboard/components/monthly-attendanc
 import ReportPage from "./features/report/page";
 import NewDevicesList from "./features/employees/components/new-devices-list";
 import LeaveApplication from "./pdf/application";
-import UserManage from "./pages/usermanage";
 import TimeManagement from "./pages/time-management";
 import JobList from "./features/recruitment/pages/job-list";
 import JobDetail from "./features/recruitment/pages/job-detail";
 import Applicants from "./features/recruitment/pages/applicants";
 import ApplicantDetail from "./features/recruitment/pages/applicant-detail";
+import { SalaryTransfer } from "./pages/salaryTransfer";
+
 
 const router = createBrowserRouter([
   {
@@ -122,6 +123,10 @@ const router = createBrowserRouter([
         path: "time-management",
         element: <TimeManagement />
       },
+      {
+        path: "salary-transfer",
+        element: <SalaryTransfer />
+      },  
     ],
   },
   {

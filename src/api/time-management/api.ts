@@ -1,6 +1,6 @@
 import API from "..";
 import { ITimeAllocation } from "../../features/time-management/types";
-import { ITimeAllocationResponse } from "./types";
+import { ITimeAllocationPayload, ITimeAllocationResponse } from "./types";
 
 export interface ITimeAllocationResult {
     data: ITimeAllocation[];
@@ -47,6 +47,11 @@ export const fetchTimeAllocations = async (
         throw error;
     }
 };
+
+export interface IAddOrUpdateResponse {
+    status: string;
+    message: string;
+}
 
 export const addOrUpdateTimeAllocation = async (
     payload: ITimeAllocationPayload
