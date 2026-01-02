@@ -9,7 +9,6 @@ import {
     TableRow,
     TextField,
     Checkbox,
-    TablePagination,
 } from "@mui/material";
 
 interface SalarySheetData {
@@ -48,8 +47,6 @@ interface SalarySheetTableProps {
 export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: SalarySheetTableProps) => {
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
     const [selected, setSelected] = useState<number[]>([]);
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Update table data when prop changes
     useEffect(() => {
@@ -126,18 +123,6 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
     };
 
     const isSelected = (id: number) => selected.indexOf(id) !== -1;
-
-    const handleChangePage = (_event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
-        setPage(0);
-    };
-
-    // Get paginated data
-    const paginatedData = tableData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     return (
         <TableContainer component={Paper} sx={{ mt: 3, overflowX: "auto" }}>
@@ -262,7 +247,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {paginatedData.map((row, index) => {
+                    {tableData.map((row, index) => {
                         const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || index;
                         const isItemSelected = isSelected(rowId);
                         return (
@@ -466,15 +451,6 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                     })}
                 </TableBody>
             </Table>
-            <TablePagination
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                component="div"
-                count={tableData.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
         </TableContainer>
     );
 };
