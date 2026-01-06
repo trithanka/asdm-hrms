@@ -11,20 +11,14 @@ import {
     CircularProgress,
     Alert,
 } from "@mui/material";
+import DownloadIcon from "@mui/icons-material/Download";
 import { SalarySheetTable } from "../features/montly-salary-management/components/SalarySheetTable";
 import { BankTransferTable } from "../features/montly-salary-management/components/BankTransferTable";
 import { TaxDeductionTable } from "../features/montly-salary-management/components/TaxDeductionTable";
 import { useSalaryStructureTypes, useEmployeeList, useGenerateSalary } from "../features/montly-salary-management/hooks/useGetSalaryFile";
+import { useExportSalaryReport } from "../features/montly-salary-management/hooks/useExportSalaryReport";
 
 import toast from "react-hot-toast";
-
-// Sample data
-
-
-
-
-
-
 const months = [
     { value: "1", label: "January" },
     { value: "2", label: "February" },
@@ -74,6 +68,7 @@ export const SalaryTransfer = () => {
     );
 
     const generateSalaryMutation = useGenerateSalary();
+    const { exportToExcel } = useExportSalaryReport();
 
 
     const handleSalaryDataChange = (updatedData: any[]) => {
@@ -82,6 +77,30 @@ export const SalaryTransfer = () => {
 
     const handleSelectionChange = (selectedIds: number[]) => {
         setSelectedEmployeeIds(selectedIds);
+    };
+
+    const handleExportReport = () => {
+        // Use currentTableData if available (contains user edits), otherwise fall back to API data
+        const employeeData = currentTableData.length > 0
+            ? currentTableData
+            : (employeeListData?.employeeList || []);
+
+        if (employeeData.length === 0) {
+            toast.error("No data available to export");
+            return;
+        }
+
+        const fileName = exportToExcel(employeeData, {
+            month: selectedMonth,
+            year: selectedYear.toString(),
+            structureType: selectedStructureType,
+        });
+
+        if (fileName) {
+            toast.success(`Report downloaded: ${fileName}`);
+        } else {
+            toast.error("Failed to export report");
+        }
     };
 
     const handleSubmit = async () => {
@@ -123,36 +142,33 @@ export const SalaryTransfer = () => {
         try {
             const response = await generateSalaryMutation.mutateAsync(payload);
 
-            // Check if generation was successful
-            if (response.sucessReport.status === false) {
-                // Show error with details
-                const failedMessages = response.sucessReport.failedGenerate
-                    .map(f => `Employee ${f.employeeId}: ${f.message}`)
-                    .join(", ");
+            const successCount = response.sucessReport.successfullyGenerateCount;
+            const failedCount = response.sucessReport.failedGenerateCount;
 
+            if (failedCount > 0 && successCount === 0) {
+                // All failed
                 toast.error(
-                    `Failed to generate salary. ${failedMessages}`,
+                    `Salary generation failed. Success: ${successCount} | Failed: ${failedCount}`,
                     { duration: 6000 }
                 );
+            } else if (failedCount > 0 && successCount > 0) {
+                // Partial success
+                toast.success(
+                    `Success: ${successCount} | Failed: ${failedCount}`,
+                    { duration: 5000 }
+                );
+                setSelectedEmployeeIds([]);
             } else {
-                // Show success message
-                const successCount = response.sucessReport.successfullyGenerateCount;
-                const failedCount = response.sucessReport.failedGenerateCount;
-
-                if (failedCount > 0) {
-                    toast.success(
-                        `Salary generated for ${successCount} employee(s). ${failedCount} failed.`,
-                        { duration: 5000 }
-                    );
-                } else {
-                    toast.success(
-                        `Salary generated successfully for ${successCount} employee(s)!`
-                    );
-                }
-                setSelectedEmployeeIds([]); // Clear selection
+                // Full success
+                toast.success(
+                    `Salary generated successfully. Success: ${successCount}`,
+                    { duration: 4000 }
+                );
+                setSelectedEmployeeIds([]);
             }
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to generate salary");
+            const errorMessage = error?.response?.data?.message;
+            toast.error(errorMessage || "Failed to generate salary. Please try again.");
         }
     };
 
@@ -326,6 +342,17 @@ export const SalaryTransfer = () => {
                         <Typography variant="body2" color="text.secondary">
                             {selectedEmployeeIds.length} employee(s) selected
                         </Typography>
+                    )}
+                    {selectedStructureType === "ASDM_NESC" && (
+                        <Button
+                            variant="outlined"
+                            color="success"
+                            onClick={handleExportReport}
+                            disabled={isLoadingEmployees}
+                            startIcon={<DownloadIcon />}
+                        >
+                            Download Report (XL)
+                        </Button>
                     )}
                     <Button
                         variant="contained"

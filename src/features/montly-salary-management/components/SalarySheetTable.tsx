@@ -244,6 +244,16 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                         >
                             Net Amount
                         </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 600,
+                                border: "1px solid #ddd",
+                                backgroundColor: "#e1bee7",
+                                userSelect: "none",
+                            }}
+                        >
+                            Salary Status
+                        </TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -445,6 +455,17 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                                     }}
                                 >
                                     ₹{(row.netAmount ?? 0).toLocaleString()}
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        textAlign: "center",
+                                        fontWeight: 600,
+                                        color: row.salaryStatus === "generated" ? "green" : "orange",
+                                        textTransform: "capitalize",
+                                    }}
+                                >
+                                    {row.salaryStatus}
                                 </TableCell>
                             </TableRow>
                         );
