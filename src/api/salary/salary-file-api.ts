@@ -186,6 +186,7 @@ export interface SalarySlipPayload {
 }
 
 export interface SalarySlipData {
+    generatedOn: any;
     salaryReportId: number;
     fullName: string;
     dateOfJoing: string;

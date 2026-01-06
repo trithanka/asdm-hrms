@@ -373,7 +373,6 @@ export const SalaryTransfer = () => {
                     </Button>
                 </Box>
             )}
-
             {renderTable()}
         </Box>
     );
