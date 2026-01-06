@@ -9,9 +9,16 @@ import {
     TableRow,
     TextField,
     Checkbox,
+    Tooltip,
+    IconButton,
+    CircularProgress,
 } from "@mui/material";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import { generateSalarySlip } from "../utils/generateSalarySlip";
+import { useSalarySlip } from "../hooks/useGetSalaryFile";
+import toast from "react-hot-toast";
 
-interface SalarySheetData {
+export interface SalarySheetData {
     employeeId: number;
     pklSalaryBreakingAsdmNescEmployeeWiseId: number | null;
     fullName: string;
@@ -42,11 +49,16 @@ interface SalarySheetTableProps {
     data: SalarySheetData[];
     onDataChange?: (updatedData: SalarySheetData[]) => void;
     onSelectionChange?: (selectedIds: number[]) => void;
+    month?: string;
+    year?: string;
 }
 
-export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: SalarySheetTableProps) => {
+export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month = "", year = "" }: SalarySheetTableProps) => {
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
     const [selected, setSelected] = useState<number[]>([]);
+    const [generatingId, setGeneratingId] = useState<number | null>(null);
+
+    const salarySlipMutation = useSalarySlip();
 
     // Update table data when prop changes
     useEffect(() => {
@@ -84,9 +96,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
 
     const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.checked) {
-            const newSelected = tableData
-                .filter((n) => n.pklSalaryBreakingAsdmNescEmployeeWiseId !== null)
-                .map((n) => n.pklSalaryBreakingAsdmNescEmployeeWiseId!);
+            const newSelected = tableData.map((n) => n.pklSalaryBreakingAsdmNescEmployeeWiseId || n.employeeId);
             setSelected(newSelected);
             if (onSelectionChange) {
                 onSelectionChange(newSelected);
@@ -123,6 +133,36 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
     };
 
     const isSelected = (id: number) => selected.indexOf(id) !== -1;
+
+    const handleGenerateReceipt = async (row: SalarySheetData) => {
+        if (!month || !year) {
+            toast.error("Please select month and year first");
+            return;
+        }
+
+        const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
+        setGeneratingId(rowId);
+
+        try {
+            const response = await salarySlipMutation.mutateAsync({
+                employeeId: row.employeeId.toString(),
+                generateMonth: month,
+                generateYear: year,
+            });
+
+            if (response.status === "success" && response.data && response.data.length > 0) {
+                generateSalarySlip(response.data[0]);
+                toast.success("Salary slip generated successfully");
+            } else {
+                toast.error(response.message || "Failed to generate salary slip");
+            }
+        } catch (error: any) {
+            console.error("Error generating salary slip:", error);
+            toast.error(error?.response?.data?.message || "Failed to generate salary slip");
+        } finally {
+            setGeneratingId(null);
+        }
+    };
 
     return (
         <TableContainer component={Paper} sx={{ mt: 3, overflowX: "auto" }}>
@@ -254,11 +294,21 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                         >
                             Salary Status
                         </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 600,
+                                border: "1px solid #ddd",
+                                userSelect: "none",
+                                textAlign: "center",
+                            }}
+                        >
+                            Action
+                        </TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {tableData.map((row, index) => {
-                        const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || index;
+                    {tableData.map((row) => {
+                        const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
                         const isItemSelected = isSelected(rowId);
                         return (
                             <TableRow key={rowId} hover selected={isItemSelected}>
@@ -267,7 +317,6 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                                         color="primary"
                                         checked={isItemSelected}
                                         onChange={() => handleRowClick(rowId)}
-                                        disabled={row.pklSalaryBreakingAsdmNescEmployeeWiseId === null}
                                     />
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd" }}>
@@ -466,6 +515,26 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange }: Sala
                                     }}
                                 >
                                     {row.salaryStatus}
+                                </TableCell>
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
+                                    {row.salaryStatus === "generated" && (
+                                        <Tooltip title="Generate Salary Receipt">
+                                            <span>
+                                                <IconButton
+                                                    size="small"
+                                                    color="primary"
+                                                    onClick={() => handleGenerateReceipt(row)}
+                                                    disabled={generatingId === rowId}
+                                                >
+                                                    {generatingId === rowId ? (
+                                                        <CircularProgress size={20} />
+                                                    ) : (
+                                                        <ReceiptIcon />
+                                                    )}
+                                                </IconButton>
+                                            </span>
+                                        </Tooltip>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         );

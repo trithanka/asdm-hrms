@@ -85,3 +85,11 @@ export const useDownloadSalaryFile = () => {
         },
     });
 };
+
+export const useSalarySlip = () => {
+    return useMutation({
+        mutationFn: (payload: import("../../../api/salary/salary-file-api").SalarySlipPayload) =>
+            salaryFileApi.getSalarySlip(payload),
+    });
+};
+

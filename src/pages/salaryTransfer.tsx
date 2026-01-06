@@ -215,6 +215,7 @@ export const SalaryTransfer = () => {
         // Get employee data from API
         const employeeData = employeeListData?.employeeList || [];
 
+
         // Show empty state
         if (employeeData.length === 0) {
             return (
@@ -243,6 +244,8 @@ export const SalaryTransfer = () => {
                         data={employeeData as any}
                         onDataChange={handleSalaryDataChange}
                         onSelectionChange={handleSelectionChange}
+                        month={selectedMonth}
+                        year={selectedYear.toString()}
                     />
                 );
 
@@ -259,6 +262,8 @@ export const SalaryTransfer = () => {
                         data={employeeData as any}
                         onDataChange={handleSalaryDataChange}
                         onSelectionChange={handleSelectionChange}
+                        month={selectedMonth}
+                        year={selectedYear.toString()}
                     />
                 );
         }

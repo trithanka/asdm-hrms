@@ -171,4 +171,43 @@ export const salaryFileApi = {
         });
         return response.data;
     },
+
+    // Get salary slip
+    getSalarySlip: async (payload: SalarySlipPayload): Promise<SalarySlipResponse> => {
+        const response = await API.post("/SalaryGenerate/salary-slip", payload);
+        return response.data;
+    },
 };
+
+export interface SalarySlipPayload {
+    employeeId: string;
+    generateMonth: string;
+    generateYear: string;
+}
+
+export interface SalarySlipData {
+    salaryReportId: number;
+    fullName: string;
+    dateOfJoing: string;
+    designation: string;
+    salarySlipMonth: string;
+    salarySlipMonthString: string;
+    fixedSalary: number;
+    houseRent: number;
+    mobileInternet: number;
+    newspaperMagazine: number;
+    conveyanceAllowance: number;
+    educationAllowance: number;
+    grossSalary: number;
+    deductionPtax: number;
+    deductionIncomeTax: number;
+    ddvancesOtherDeductions: number;
+    netAmount: number;
+}
+
+export interface SalarySlipResponse {
+    status: string;
+    message: string;
+    data: SalarySlipData[];
+    statusCode: number;
+}
