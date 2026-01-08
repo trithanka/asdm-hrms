@@ -152,8 +152,8 @@ export default function JobList() {
       </Stack>
     );
   }
-    
-return (
+
+  return (
     <Paper elevation={0} sx={{ bgcolor: "transparent" }}>
       {/* Header */}
       <Stack
@@ -174,7 +174,14 @@ return (
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpenAddDialog(true)}
-          sx={{ bgcolor: "#10b981", "&:hover": { bgcolor: "#059669" } }}
+          sx={{
+            bgcolor: "#2e7d32",
+            "&:hover": { bgcolor: "#1b5e20" },
+            borderRadius: 2,
+            textTransform: "none",
+            fontWeight: 600,
+            px: 3
+          }}
         >
           Create New Job Post
         </Button>
@@ -182,8 +189,8 @@ return (
 
       {/* Search and Filters */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Stack 
-          direction={{ xs: "column", lg: "row" }} 
+        <Stack
+          direction={{ xs: "column", lg: "row" }}
           spacing={3}
           justifyContent="space-between"
           alignItems={{ xs: "stretch", lg: "center" }}
@@ -193,9 +200,9 @@ return (
             <Input
               fullWidth
               placeholder="Search by job name, designation, location..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyPress={handleSearchKeyPress}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
               startAdornment={
                 <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
               }
@@ -257,7 +264,7 @@ return (
             {hasActiveFilters() && (
               <IconButton
                 size="small"
-                  onClick={clearAllFilters}
+                onClick={clearAllFilters}
                 sx={{ color: "text.secondary" }}
               >
                 <ClearIcon fontSize="small" />
@@ -267,45 +274,42 @@ return (
         </Stack>
       </Paper>
 
-  {/* Table */}
+      {/* Table */}
       {paginatedJobPosts.length > 0 ? (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  #
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Job Post Name
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Designation
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Department
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Vacancies
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Total Applications
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Application Start
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Application End
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Interview Date
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Status
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: 'uppercase', bgcolor: '#eee', color: '#555' }}>
-                  Action
-                </TableCell>
+                {[
+                  "#",
+                  "Job Post Name",
+                  "Designation",
+                  "Department",
+                  "Vacancies",
+                  "Applications",
+                  "App Start",
+                  "App End",
+                  "Interview",
+                  "Status",
+                  "Action"
+                ].map((header) => (
+                  <TableCell
+                    key={header}
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                      textTransform: "uppercase",
+                      bgcolor: "#f8f9fa",
+                      color: "text.secondary",
+                      py: 1.5,
+                      borderBottom: "2px solid",
+                      borderColor: "divider",
+                      letterSpacing: "0.02rem"
+                    }}
+                  >
+                    {header}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -321,7 +325,7 @@ return (
                   <TableCell>
                     <Typography
                       variant="body2"
-                      sx={{ color: "primary.main", fontWeight: 500 }}
+                      sx={{ color: "primary.main", fontWeight: 700, fontSize: "0.825rem" }}
                     >
                       {job.vsJobPostName || "N/A"}
                     </Typography>
@@ -332,8 +336,8 @@ return (
                       (dept) => dept.internalDepartmentId === job.fklDepartmentId
                     )?.internalDepartmentName || "N/A"}
                   </TableCell>
-                  <TableCell>{job.iNumberOfPost || "0"}</TableCell>
-                  <TableCell>{job.totalApplicants || "0"}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{job.iNumberOfPost || "0"}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{job.totalApplicants || "0"}</TableCell>
                   <TableCell>
                     {job.dtApplicationStartDate
                       ? formatDate(job.dtApplicationStartDate)
@@ -362,22 +366,24 @@ return (
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton
+                    <Button
                       component={Link}
                       to={`/recruitment/jobs/${job.pklHrmsJobPostId}`}
                       size="small"
-                      sx={{ color: "text.secondary" }}
+                      variant="text"
+                      startIcon={<VisibilityIcon sx={{ fontSize: 18 }} />}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
                     >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
+                      View
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
 
-  {/* Pagination */}
-  {totalPages > 1 && (
+          {/* Pagination */}
+          {totalPages > 1 && (
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -389,16 +395,16 @@ return (
                   Rows per page:
                 </Typography>
                 <Select
-          value={pageSize}
+                  value={pageSize}
                   onChange={(e) =>
                     handlePageSizeChange(Number(e.target.value))
                   }
                   size="small"
                   sx={{ minWidth: 70, fontSize: "0.875rem" }}
-        >
-          {[10, 25, 50, 100].map((num) => (
+                >
+                  {[10, 25, 50, 100].map((num) => (
                     <MenuItem key={num} value={num}>
-              {num}
+                      {num}
                     </MenuItem>
                   ))}
                 </Select>
@@ -408,10 +414,10 @@ return (
                 <Button
                   variant="outlined"
                   size="small"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          Previous
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
                 </Button>
                 <Typography variant="body2" color="text.secondary">
                   Page <strong>{currentPage}</strong> of{" "}
@@ -420,10 +426,10 @@ return (
                 <Button
                   variant="outlined"
                   size="small"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-        >
-          Next
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
                 </Button>
               </Stack>
             </Stack>
@@ -435,16 +441,16 @@ return (
           <Box
             component="svg"
             sx={{ width: 128, height: 128, color: "grey.300" }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                />
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            />
           </Box>
           <Typography variant="h6" color="text.primary" fontWeight={500}>
             No Job Posts Found
@@ -463,5 +469,4 @@ return (
       />
     </Paper>
   );
-  }
-  
+}

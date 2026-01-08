@@ -24,17 +24,21 @@ import toast from "react-hot-toast";
 import {
   createJobPost,
   fetchRecruitmentMasterData,
+  formatDateLocal,
 } from "../../../api/recruitment/recruitment-api";
 import { ICreateJobPost } from "../../../api/recruitment/recruitment-types";
 import Select from "../../../components/ui/select";
 import { useState } from "react";
 
-// Get today's date in YYYY-MM-DD format for min date validation
-const getTodayDate = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString().split("T")[0];
+// Helper to get tomorrow's date in YYYY-MM-DD
+const getTomorrowDateStr = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return formatDateLocal(tomorrow);
 };
+
+const tomorrowDateStr = getTomorrowDateStr();
+const todayDateStr = formatDateLocal(new Date());
 
 const schema = yup
   .object({
@@ -53,7 +57,10 @@ const schema = yup
       .date()
       .required("Application Start Date is required")
       .typeError("Invalid date")
-      .min(new Date(), "Application Start Date must be today or a future date"),
+      .test("is-future", "Application Start Date must be a future date", (value) => {
+        if (!value) return false;
+        return formatDateLocal(value) > todayDateStr;
+      }),
     applicationEndDate: yup
       .date()
       .required("Application End Date is required")
@@ -115,17 +122,13 @@ export default function AddJobPost(props: Props) {
 
   // Watch application start date to set min date for end date
   const applicationStartDate = watch("applicationStartDate");
-  
-  // Get today's date in YYYY-MM-DD format
-  const todayDate = getTodayDate();
-  
-  // Get minimum date for application end date (start date or today, whichever is later)
+
+  // Get minimum date for application end date (start date or tomorrow, whichever is later)
   const getMinEndDate = () => {
     if (applicationStartDate) {
-      const startDate = new Date(applicationStartDate);
-      return startDate.toISOString().split("T")[0];
+      return formatDateLocal(applicationStartDate);
     }
-    return todayDate;
+    return tomorrowDateStr;
   };
 
   // Fetch master data for dropdowns
@@ -136,7 +139,7 @@ export default function AddJobPost(props: Props) {
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: ({ data, files }: { data: ICreateJobPost; files: File[] }) => 
+    mutationFn: ({ data, files }: { data: ICreateJobPost; files: File[] }) =>
       createJobPost(data, files),
     onSuccess() {
       queryClient.invalidateQueries({ queryKey: ["jobPosts"] });
@@ -159,9 +162,9 @@ export default function AddJobPost(props: Props) {
     // Convert FileList to Array and add to existing files
     const fileArray = Array.from(files);
     setSelectedFiles((prev) => [...prev, ...fileArray]);
-    
+
     toast.success(`${fileArray.length} file(s) selected`);
-    
+
     // Reset the input to allow selecting the same file again if needed
     event.target.value = "";
   };
@@ -171,17 +174,13 @@ export default function AddJobPost(props: Props) {
   };
 
   const onSubmit = (data: FormValues) => {
-    // Format dates to YYYY-MM-DD format
+    // Format dates to YYYY-MM-DD format using local time to avoid shift
     const formattedData: ICreateJobPost = {
       ...data,
-      applicationStartDate: new Date(data.applicationStartDate)
-        .toISOString()
-        .split("T")[0],
-      applicationEndDate: new Date(data.applicationEndDate)
-        .toISOString()
-        .split("T")[0],
+      applicationStartDate: formatDateLocal(data.applicationStartDate),
+      applicationEndDate: formatDateLocal(data.applicationEndDate),
       interviewAt: data.interviewAt
-        ? new Date(data.interviewAt).toISOString().split("T")[0]
+        ? formatDateLocal(data.interviewAt)
         : undefined,
     };
     mutate({ data: formattedData, files: selectedFiles });
@@ -223,7 +222,7 @@ export default function AddJobPost(props: Props) {
                 name="department"
                 required
                 options={
-                  masterData?.department?.map((dept) => ({
+                  masterData?.department?.map((dept: any) => ({
                     value: dept.internalDepartmentId,
                     label: dept.internalDepartmentName,
                   })) || []
@@ -239,7 +238,7 @@ export default function AddJobPost(props: Props) {
                 name="designation"
                 required
                 options={
-                  masterData?.designation?.map((desig) => ({
+                  masterData?.designation?.map((desig: any) => ({
                     value: desig.designationId,
                     label: desig.designationName,
                   })) || []
@@ -254,7 +253,7 @@ export default function AddJobPost(props: Props) {
                 label="Qualification"
                 name="qualification"
                 options={
-                  masterData?.qualification?.map((qual) => ({
+                  masterData?.qualification?.map((qual: any) => ({
                     value: qual.qualificationId,
                     label: qual.qualificationName,
                   })) || []
@@ -305,7 +304,7 @@ export default function AddJobPost(props: Props) {
                 type="date"
                 placeholder=""
                 required
-                minDate={todayDate}
+                minDate={tomorrowDateStr}
               />
             </Grid>
 
@@ -330,7 +329,7 @@ export default function AddJobPost(props: Props) {
                 name="interviewAt"
                 type="date"
                 placeholder=""
-                minDate={todayDate}
+                minDate={tomorrowDateStr}
               />
             </Grid>
 
@@ -342,7 +341,7 @@ export default function AddJobPost(props: Props) {
                 name="interviewDistrictId"
                 placeholder="Select Interview District"
                 options={
-                  masterData?.district?.map((district) => ({
+                  masterData?.district?.map((district: any) => ({
                     value: district.districtId,
                     label: district.districtName,
                   })) || []
@@ -468,4 +467,3 @@ export default function AddJobPost(props: Props) {
     </Dialog>
   );
 }
-
