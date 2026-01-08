@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
     Box,
     Typography,
@@ -17,6 +17,7 @@ import { BankTransferTable } from "../features/montly-salary-management/componen
 import { TaxDeductionTable } from "../features/montly-salary-management/components/TaxDeductionTable";
 import { useSalaryStructureTypes, useEmployeeList, useGenerateSalary } from "../features/montly-salary-management/hooks/useGetSalaryFile";
 import { useExportSalaryReport } from "../features/montly-salary-management/hooks/useExportSalaryReport";
+import { formatFyMaster } from "../utils/formatter";
 
 import toast from "react-hot-toast";
 const months = [
@@ -34,37 +35,29 @@ const months = [
     { value: "12", label: "December" },
 ];
 
-// Generate years: current year, next year, and 2 previous years
-const generateYears = () => {
-    const currentYear = new Date().getFullYear();
-    return [
-        { value: currentYear - 2, label: (currentYear - 2).toString() },
-        { value: currentYear - 1, label: (currentYear - 1).toString() },
-        { value: currentYear, label: `${currentYear} (Current)` },
-        { value: currentYear + 1, label: (currentYear + 1).toString() },
-    ];
-};
-
 export const SalaryTransfer = () => {
 
     const [selectedStructureType, setSelectedStructureType] = useState<string>("");
     const [selectedMonth, setSelectedMonth] = useState<string>("");
-    const [selectedYear, setSelectedYear] = useState<number>(
-        new Date().getFullYear()
-    );
+    const [selectedYear, setSelectedYear] = useState<number | "">("");
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
     const [currentTableData, setCurrentTableData] = useState<any[]>([]);
 
-    const years = generateYears();
-
-    // Fetch salary structure types
+    // Fetch salary structure types and fyMaster
     const { data: structureTypesData, isLoading: isLoadingTypes } = useSalaryStructureTypes();
 
+    // Format financial years from fyMaster data
+    const formattedYears = useMemo(() => {
+        if (!structureTypesData?.data?.fyMaster) return [];
+        return formatFyMaster(structureTypesData.data.fyMaster);
+    }, [structureTypesData]);
+
     // Fetch employee list based on selected filters
+    // Send pklSalaryFinancialYearId as string instead of year
     const { data: employeeListData, isLoading: isLoadingEmployees, error: employeeError } = useEmployeeList(
         selectedStructureType,
         selectedMonth,
-        selectedYear.toString()
+        selectedYear ? selectedYear.toString() : undefined
     );
 
     const generateSalaryMutation = useGenerateSalary();
@@ -92,7 +85,7 @@ export const SalaryTransfer = () => {
 
         const fileName = exportToExcel(employeeData, {
             month: selectedMonth,
-            year: selectedYear.toString(),
+            year: selectedYear ? selectedYear.toString() : "",
             structureType: selectedStructureType,
         });
 
@@ -121,19 +114,20 @@ export const SalaryTransfer = () => {
         }
 
         // Prepare payload with edited values
+        // Send null instead of 0 when no value is set
         const generateEmployees = employeesToSubmit.map((emp: any) => ({
             employeeId: emp.employeeId,
-            attendance: emp.attendance ?? 0,
-            lwp: emp.lwpDays ?? 0,
-            arear: emp.arrear ?? 0,
-            incomeTax: emp.deductionIncomeTax ?? 0,
-            otherDeduction: emp.ddvancesOtherDeductions ?? 0,
+            attendance: emp.attendance ?? null,
+            lwp: emp.lwpDays ?? null,
+            arear: emp.arrear ?? null,
+            incomeTax: emp.deductionIncomeTax ?? null,
+            otherDeduction: emp.ddvancesOtherDeductions ?? null,
         }));
 
         const payload = {
             salaryStructureType: selectedStructureType,
             generateMonth: selectedMonth,
-            generateYear: selectedYear.toString(),
+            generateYear: selectedYear ? selectedYear.toString() : "",
             generateEmployees,
         };
 
@@ -245,7 +239,7 @@ export const SalaryTransfer = () => {
                         onDataChange={handleSalaryDataChange}
                         onSelectionChange={handleSelectionChange}
                         month={selectedMonth}
-                        year={selectedYear.toString()}
+                        year={selectedYear ? selectedYear.toString() : ""}
                     />
                 );
 
@@ -263,14 +257,14 @@ export const SalaryTransfer = () => {
                         onDataChange={handleSalaryDataChange}
                         onSelectionChange={handleSelectionChange}
                         month={selectedMonth}
-                        year={selectedYear.toString()}
+                        year={selectedYear ? selectedYear.toString() : ""}
                     />
                 );
         }
     };
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <Box
                 sx={{
                     display: "flex",
@@ -279,6 +273,7 @@ export const SalaryTransfer = () => {
                     mb: 3,
                     flexWrap: "wrap",
                     gap: 2,
+                    flexShrink: 0,
                 }}
             >
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -294,8 +289,9 @@ export const SalaryTransfer = () => {
                             value={selectedYear}
                             label="Year"
                             onChange={(e) => setSelectedYear(e.target.value as number)}
+                            disabled={isLoadingTypes || formattedYears.length === 0}
                         >
-                            {years.map((year) => (
+                            {formattedYears.map((year) => (
                                 <MenuItem key={year.value} value={year.value}>
                                     {year.label}
                                 </MenuItem>
@@ -341,8 +337,8 @@ export const SalaryTransfer = () => {
             </Box>
 
             {/* Submit Button */}
-            {selectedStructureType && selectedMonth && selectedYear && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
-                <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end", gap: 2, alignItems: "center" }}>
+            {selectedStructureType && selectedMonth && selectedYear !== "" && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
+                <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end", gap: 2, alignItems: "center", flexShrink: 0 }}>
                     {selectedEmployeeIds.length > 0 && (
                         <Typography variant="body2" color="text.secondary">
                             {selectedEmployeeIds.length} employee(s) selected
@@ -373,7 +369,9 @@ export const SalaryTransfer = () => {
                     </Button>
                 </Box>
             )}
-            {renderTable()}
+            <Box sx={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+                {renderTable()}
+            </Box>
         </Box>
     );
 };
