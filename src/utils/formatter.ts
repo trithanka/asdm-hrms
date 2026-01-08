@@ -63,3 +63,56 @@ export function convertTo12HourFormat(time: any) {
 
   return `${hour}:${minutes} ${ampm}`;
 }
+
+export interface FyMasterItem {
+  pklSalaryFinancialYearId: number;
+  vsFy: string;
+  iStartMonth: number;
+  bEnabled: number;
+  dtCreatedAt: string;
+}
+
+export interface FormattedFyMaster {
+  id: number; // pklSalaryFinancialYearId
+  label: string; // Formatted display label
+  value: number; // pklSalaryFinancialYearId (for select value)
+}
+
+/**
+ * Formats financial year master data for display
+ * Shows vsFy-vsFy+1 (e.g., "2025-2026")
+ * If multiple entries have the same vsFy, adds iStartMonth in brackets as month name
+ */
+export function formatFyMaster(fyMaster: FyMasterItem[]): FormattedFyMaster[] {
+  // Count occurrences of each vsFy
+  const vsFyCount: Record<string, number> = {};
+  fyMaster.forEach((fy) => {
+    vsFyCount[fy.vsFy] = (vsFyCount[fy.vsFy] || 0) + 1;
+  });
+
+  // Month names for display
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  // Format each entry
+  return fyMaster.map((fy) => {
+    const startYear = parseInt(fy.vsFy, 10);
+    const endYear = startYear + 1;
+    let label = `${startYear}-${endYear}`;
+
+    // If there are multiple entries with the same vsFy, add month name in brackets
+    if (vsFyCount[fy.vsFy] > 1) {
+      // iStartMonth is 1-based (1 = January, 12 = December)
+      const monthName = monthNames[fy.iStartMonth - 1] || `Month ${fy.iStartMonth}`;
+      label = `${label} (${monthName})`;
+    }
+
+    return {
+      id: fy.pklSalaryFinancialYearId,
+      label,
+      value: fy.pklSalaryFinancialYearId,
+    };
+  });
+}

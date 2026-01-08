@@ -36,11 +36,20 @@ export interface SalaryStructureType {
     type: string;
 }
 
+export interface FyMaster {
+    pklSalaryFinancialYearId: number;
+    vsFy: string;
+    iStartMonth: number;
+    bEnabled: number;
+    dtCreatedAt: string;
+}
+
 export interface SalaryStructureTypesResponse {
     status: string;
     message: string;
     data: {
         salaryStructureTypes: SalaryStructureType[];
+        fyMaster: FyMaster[];
     };
     statusCode: number;
 }

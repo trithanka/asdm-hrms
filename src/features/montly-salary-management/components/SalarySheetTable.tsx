@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Paper,
     Table,
@@ -57,24 +57,40 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
     const [selected, setSelected] = useState<number[]>([]);
     const [generatingId, setGeneratingId] = useState<number | null>(null);
+    const lastMonthYearRef = useRef<string>(`${month}-${year}`);
 
     const salarySlipMutation = useSalarySlip();
 
-    // Update table data when prop changes
+    // Update table data when month/year changes
     useEffect(() => {
-        setTableData(data);
-    }, [data]);
+        const currentMonthYear = `${month}-${year}`;
+        if (currentMonthYear !== lastMonthYearRef.current) {
+            // Month/year changed - reset data with new data
+            setTableData(data);
+            lastMonthYearRef.current = currentMonthYear;
+        }
+    }, [month, year, data]);
+
+    // Initial load - only when table is empty
+    useEffect(() => {
+        if (tableData.length === 0 && data.length > 0) {
+            setTableData(data);
+        }
+    }, [data, tableData.length]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-        id: number,
+        id: number | null,
         field: keyof SalarySheetData
     ) => {
         const { value } = e.target;
-        const updatedData = tableData.map((row) => {
-            const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || tableData.indexOf(row);
-            return rowId === id
-                ? {
+        const updatedData = tableData.map((row, index) => {
+            // Use employeeId as fallback if pklSalaryBreakingAsdmNescEmployeeWiseId is null
+            const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
+            const matchId = id ?? rowId;
+            
+            if (rowId === matchId || (id === null && index === tableData.indexOf(row))) {
+                return {
                     ...row,
                     [field]:
                         field === "attendance" ||
@@ -83,10 +99,11 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                             field === "deductionOfPtax" ||
                             field === "deductionIncomeTax" ||
                             field === "ddvancesOtherDeductions"
-                            ? parseFloat(value) || null
+                            ? (value === "" || value === null || value === undefined ? null : (isNaN(parseFloat(value)) ? null : parseFloat(value)))
                             : value,
-                }
-                : row;
+                };
+            }
+            return row;
         });
         setTableData(updatedData);
         if (onDataChange) {
@@ -165,7 +182,18 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
     };
 
     return (
-        <TableContainer component={Paper} sx={{ mt: 3, overflow: "auto", maxHeight: "calc(100vh - 280px)", width: "100%", maxWidth: "100%" }}>
+        <TableContainer 
+            component={Paper} 
+            sx={{ 
+                mt: 3, 
+                overflowX: "auto",
+                overflowY: "auto", 
+                maxHeight: "calc(100vh - 280px)", 
+                width: "100%", 
+                maxWidth: "100%",
+                position: "relative"
+            }}
+        >
             <Table sx={{ minWidth: 1600 }} size="small" stickyHeader>
                 <TableHead>
                     <TableRow sx={{ userSelect: "none" }}>
