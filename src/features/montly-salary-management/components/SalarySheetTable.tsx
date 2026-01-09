@@ -165,7 +165,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
     };
 
     return (
-        <TableContainer component={Paper} sx={{ mt: 3, overflow: "auto", maxHeight: "calc(100vh - 280px)", width: "100%", maxWidth: "100%" }}>
+        <TableContainer component={Paper} sx={{ mt: 3, overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 380px)", width: "100%", maxWidth: "100%" }}>
             <Table sx={{ minWidth: 1600 }} size="small" stickyHeader>
                 <TableHead>
                     <TableRow sx={{ userSelect: "none" }}>
