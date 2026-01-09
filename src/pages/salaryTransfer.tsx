@@ -20,6 +20,7 @@ import { useExportSalaryReport } from "../features/montly-salary-management/hook
 import { formatFyMaster } from "../utils/formatter";
 
 import toast from "react-hot-toast";
+import { useEffect } from "react";
 const months = [
     { value: "1", label: "January" },
     { value: "2", label: "February" },
@@ -37,8 +38,8 @@ const months = [
 
 export const SalaryTransfer = () => {
 
-    const [selectedStructureType, setSelectedStructureType] = useState<string>("");
-    const [selectedMonth, setSelectedMonth] = useState<string>("");
+    const [selectedStructureType, setSelectedStructureType] = useState<string>("ASDM_NESC");
+    const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString());
     const [selectedYear, setSelectedYear] = useState<number | "">("");
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
     const [currentTableData, setCurrentTableData] = useState<any[]>([]);
@@ -63,6 +64,19 @@ export const SalaryTransfer = () => {
     const generateSalaryMutation = useGenerateSalary();
     const { exportToExcel } = useExportSalaryReport();
 
+    // Set default enabled financial year
+    useEffect(() => {
+        if (structureTypesData?.data?.fyMaster && selectedYear === "") {
+            // Find all enabled financial years
+            const enabledYears = structureTypesData.data.fyMaster.filter(fy => fy.bEnabled === 1);
+            if (enabledYears.length > 0) {
+                // Pick the latest one (highest ID is usually the most recent configuration)
+                const latestFy = [...enabledYears].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0];
+                setSelectedYear(latestFy.pklSalaryFinancialYearId);
+            }
+        }
+    }, [structureTypesData, selectedYear]);
+
 
     const handleSalaryDataChange = (updatedData: any[]) => {
         setCurrentTableData(updatedData);
@@ -83,9 +97,11 @@ export const SalaryTransfer = () => {
             return;
         }
 
+        const selectedYearLabel = formattedYears.find(fy => fy.value === selectedYear)?.label || (selectedYear ? selectedYear.toString() : "");
+
         const fileName = exportToExcel(employeeData, {
             month: selectedMonth,
-            year: selectedYear ? selectedYear.toString() : "",
+            year: selectedYearLabel,
             structureType: selectedStructureType,
         });
 
@@ -127,7 +143,7 @@ export const SalaryTransfer = () => {
         const payload = {
             salaryStructureType: selectedStructureType,
             generateMonth: selectedMonth,
-            generateYear: selectedYear ? selectedYear.toString() : "",
+            generateYear: selectedYear.toString(),
             generateEmployees,
         };
 
@@ -264,112 +280,124 @@ export const SalaryTransfer = () => {
     };
 
     return (
-        <Box sx={{ p: 3, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <Box
-                sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    mb: 3,
-                    flexWrap: "wrap",
-                    gap: 2,
-                    flexShrink: 0,
-                }}
-            >
-                <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                    Manage Monthly Salary Transfer
-                </Typography>
-
-                <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
-                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                        <InputLabel id="year-label">Year</InputLabel>
-                        <Select
-                            labelId="year-label"
-                            id="year-select"
-                            value={selectedYear}
-                            label="Year"
-                            onChange={(e) => setSelectedYear(e.target.value as number)}
-                            disabled={isLoadingTypes || formattedYears.length === 0}
-                        >
-                            {formattedYears.map((year) => (
-                                <MenuItem key={year.value} value={year.value}>
-                                    {year.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                        <InputLabel id="month-label">Month</InputLabel>
-                        <Select
-                            labelId="month-label"
-                            id="month-select"
-                            value={selectedMonth}
-                            label="Month"
-                            onChange={(e) => setSelectedMonth(e.target.value)}
-                        >
-                            {months.map((month) => (
-                                <MenuItem key={month.value} value={month.value}>
-                                    {month.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    <FormControl size="small" sx={{ minWidth: 180 }}>
-                        <InputLabel id="structure-type-label">Salary Structure</InputLabel>
-                        <Select
-                            labelId="structure-type-label"
-                            id="structure-type-select"
-                            value={selectedStructureType}
-                            label="Salary Structure"
-                            onChange={(e) => setSelectedStructureType(e.target.value)}
-                            disabled={isLoadingTypes}
-                        >
-                            {structureTypesData?.data?.salaryStructureTypes?.map((type) => (
-                                <MenuItem key={type.type} value={type.type}>
-                                    {type.type.replace(/_/g, " ")}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+        <Box sx={{ height: "100%", overflow: "hidden", display: "flex", flexDirection: "column", pt: 1 }}>
+            <Box sx={{ mb: 0, flexShrink: 0 }}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: "primary.main" }}>
+                        Employee Wise Payroll
+                    </Typography>
                 </Stack>
-            </Box>
 
-            {/* Submit Button */}
-            {selectedStructureType && selectedMonth && selectedYear !== "" && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
-                <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end", gap: 2, alignItems: "center", flexShrink: 0 }}>
-                    {selectedEmployeeIds.length > 0 && (
-                        <Typography variant="body2" color="text.secondary">
-                            {selectedEmployeeIds.length} employee(s) selected
-                        </Typography>
+                <Box
+                    sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 2,
+                        backgroundColor: "white",
+                        p: 2,
+                        borderRadius: 2,
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+                        border: "1px solid #edf2f7",
+                    }}
+                >
+                    {/* Filters Group */}
+                    <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+                        <FormControl size="small" sx={{ minWidth: 160 }}>
+                            <InputLabel id="year-label">Financial Year</InputLabel>
+                            <Select
+                                labelId="year-label"
+                                id="year-select"
+                                value={selectedYear}
+                                label="Financial Year"
+                                onChange={(e) => setSelectedYear(e.target.value as number)}
+                                disabled={isLoadingTypes || formattedYears.length === 0}
+                            >
+                                {formattedYears.map((year) => (
+                                    <MenuItem key={year.value} value={year.value}>
+                                        {year.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                            <InputLabel id="month-label">Month</InputLabel>
+                            <Select
+                                labelId="month-label"
+                                id="month-select"
+                                value={selectedMonth}
+                                label="Month"
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                            >
+                                {months.map((month) => (
+                                    <MenuItem key={month.value} value={month.value}>
+                                        {month.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 180 }}>
+                            <InputLabel id="structure-type-label">Salary Structure</InputLabel>
+                            <Select
+                                labelId="structure-type-label"
+                                id="structure-type-select"
+                                value={selectedStructureType}
+                                label="Salary Structure"
+                                onChange={(e) => setSelectedStructureType(e.target.value)}
+                                disabled={isLoadingTypes}
+                            >
+                                {structureTypesData?.data?.salaryStructureTypes?.map((type) => (
+                                    <MenuItem key={type.type} value={type.type}>
+                                        {type.type.replace(/_/g, " ")}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+
+                    {/* Actions Group */}
+                    {selectedStructureType && selectedMonth && selectedYear !== "" && (
+                        <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+                            {selectedEmployeeIds.length > 0 && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                                    {selectedEmployeeIds.length} selected
+                                </Typography>
+                            )}
+                            {selectedStructureType === "ASDM_NESC" && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
+                                <Button
+                                    variant="outlined"
+                                    color="success"
+                                    size="small"
+                                    onClick={handleExportReport}
+                                    disabled={isLoadingEmployees}
+                                    startIcon={<DownloadIcon />}
+                                >
+                                    Download Report (XL)
+                                </Button>
+                            )}
+                            {employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    size="small"
+                                    onClick={handleSubmit}
+                                    disabled={generateSalaryMutation.isPending || isLoadingEmployees}
+                                    startIcon={generateSalaryMutation.isPending ? <CircularProgress size={20} /> : null}
+                                >
+                                    {generateSalaryMutation.isPending
+                                        ? "Generating..."
+                                        : `Generate Salary ${selectedEmployeeIds.length > 0 ? `(${selectedEmployeeIds.length})` : "(All)"}`
+                                    }
+                                </Button>
+                            )}
+                        </Box>
                     )}
-                    {selectedStructureType === "ASDM_NESC" && (
-                        <Button
-                            variant="outlined"
-                            color="success"
-                            onClick={handleExportReport}
-                            disabled={isLoadingEmployees}
-                            startIcon={<DownloadIcon />}
-                        >
-                            Download Report (XL)
-                        </Button>
-                    )}
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleSubmit}
-                        disabled={generateSalaryMutation.isPending || isLoadingEmployees}
-                        startIcon={generateSalaryMutation.isPending ? <CircularProgress size={20} /> : null}
-                    >
-                        {generateSalaryMutation.isPending
-                            ? "Generating..."
-                            : `Generate Salary ${selectedEmployeeIds.length > 0 ? `(${selectedEmployeeIds.length})` : "(All)"}`
-                        }
-                    </Button>
                 </Box>
-            )}
-            <Box sx={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+            </Box>
+            <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
                 {renderTable()}
             </Box>
         </Box>

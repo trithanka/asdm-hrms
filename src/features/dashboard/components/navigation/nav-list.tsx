@@ -16,19 +16,28 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 import GroupIcon from "@mui/icons-material/Group";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import NavItem from "./nav-item";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import SettingsApplicationsIcon from "@mui/icons-material/SettingsApplications";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { useTheme } from "@mui/material/styles";
 
-import { FaRupeeSign } from "react-icons/fa";
+import NavItem from "./nav-item";
 
 interface INavList {
   open: boolean;
 }
 
 export default function NavList({ open }: INavList) {
+  const theme = useTheme();
   const [recruitmentOpen, setRecruitmentOpen] = useState(false);
+  const [payrollOpen, setPayrollOpen] = useState(false);
 
   const handleRecruitmentClick = () => {
     setRecruitmentOpen(!recruitmentOpen);
+  };
+
+  const handlePayrollClick = () => {
+    setPayrollOpen(!payrollOpen);
   };
 
   return (
@@ -62,12 +71,33 @@ export default function NavList({ open }: INavList) {
       />
 
       {/* 🔽 Recruitment Dropdown */}
-      <ListItemButton onClick={handleRecruitmentClick}>
-        <ListItemIcon>
+      <ListItemButton
+        onClick={handleRecruitmentClick}
+        sx={{
+          minHeight: 48,
+          justifyContent: open ? "initial" : "center",
+          px: 2.5,
+          color: theme.palette.text.primary,
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: 0,
+            mr: open ? 3 : "auto",
+            justifyContent: "center",
+          }}
+        >
           <TodayRoundedIcon color="warning" />
         </ListItemIcon>
-        <ListItemText primary="Recruitment" />
-        {recruitmentOpen ? <ExpandLess /> : <ExpandMore />}
+        <ListItemText
+          primary="Recruitment"
+          sx={{ opacity: open ? 1 : 0, textDecoration: "none" }}
+          primaryTypographyProps={{
+            fontWeight: 500,
+            fontSize: theme.typography.subtitle2.fontSize,
+          }}
+        />
+        {open && (recruitmentOpen ? <ExpandLess /> : <ExpandMore />)}
       </ListItemButton>
 
       <Collapse in={recruitmentOpen} timeout="auto" unmountOnExit>
@@ -115,13 +145,58 @@ export default function NavList({ open }: INavList) {
         icon={<AccessTimeIcon color="info" />}
       />
 
+      {/* 🔽 Payroll Dropdown */}
+      <ListItemButton
+        onClick={handlePayrollClick}
+        sx={{
+          minHeight: 48,
+          justifyContent: open ? "initial" : "center",
+          px: 2.5,
+          color: theme.palette.text.primary,
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: 0,
+            mr: open ? 3 : "auto",
+            justifyContent: "center",
+          }}
+        >
+          <AccountBalanceWalletIcon color="info" />
+        </ListItemIcon>
+        <ListItemText
+          primary="Payroll"
+          sx={{ opacity: open ? 1 : 0, textDecoration: "none" }}
+          primaryTypographyProps={{
+            fontWeight: 500,
+            fontSize: theme.typography.subtitle2.fontSize,
+          }}
+        />
+        {open && (payrollOpen ? <ExpandLess /> : <ExpandMore />)}
+      </ListItemButton>
 
-       <NavItem
-        link="/salary-transfer"
-        open={open}
-        label="Monthly Salary Transfer"
-        icon={<FaRupeeSign color="info" />}
-      />
+      <Collapse in={payrollOpen} timeout="auto" unmountOnExit>
+        <List component="div" disablePadding sx={{ pl: 4 }}>
+          <NavItem
+            link="/payroll/master"
+            open={open}
+            label="Master"
+            icon={<SettingsApplicationsIcon color="primary" />}
+          />
+          <NavItem
+            link="/salary-transfer"
+            open={open}
+            label="Employee-wise Payroll"
+            icon={<GroupIcon color="secondary" />}
+          />
+          <NavItem
+            link="/payroll/financial-year"
+            open={open}
+            label="Financial Year"
+            icon={<CalendarMonthIcon color="warning" />}
+          />
+        </List>
+      </Collapse>
     </List>
   );
 }
