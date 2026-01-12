@@ -10,8 +10,17 @@ import {
     Button,
     CircularProgress,
     Alert,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Divider,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { SalarySheetTable } from "../features/montly-salary-management/components/SalarySheetTable";
 import { BankTransferTable } from "../features/montly-salary-management/components/BankTransferTable";
 import { TaxDeductionTable } from "../features/montly-salary-management/components/TaxDeductionTable";
@@ -22,9 +31,6 @@ import { formatFyMaster } from "../utils/formatter";
 import toast from "react-hot-toast";
 import { useEffect } from "react";
 const months = [
-    { value: "1", label: "January" },
-    { value: "2", label: "February" },
-    { value: "3", label: "March" },
     { value: "4", label: "April" },
     { value: "5", label: "May" },
     { value: "6", label: "June" },
@@ -34,6 +40,9 @@ const months = [
     { value: "10", label: "October" },
     { value: "11", label: "November" },
     { value: "12", label: "December" },
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
 ];
 
 export const SalaryTransfer = () => {
@@ -41,8 +50,13 @@ export const SalaryTransfer = () => {
     const [selectedStructureType, setSelectedStructureType] = useState<string>("ASDM_NESC");
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString());
     const [selectedYear, setSelectedYear] = useState<number | "">("");
-    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
     const [currentTableData, setCurrentTableData] = useState<any[]>([]);
+
+    // Dialog states
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [resultDialogOpen, setResultDialogOpen] = useState(false);
+    const [counts, setCounts] = useState({ skipped: 0, valid: 0 });
+    const [resultCounts, setResultCounts] = useState({ success: 0, failed: 0 });
 
     // Fetch salary structure types and fyMaster
     const { data: structureTypesData, isLoading: isLoadingTypes } = useSalaryStructureTypes();
@@ -82,9 +96,46 @@ export const SalaryTransfer = () => {
         setCurrentTableData(updatedData);
     };
 
-    const handleSelectionChange = (selectedIds: number[]) => {
-        setSelectedEmployeeIds(selectedIds);
+    // Determine available months for the selected FY configuration
+    const isMonthDisabled = (monthValue: string) => {
+        if (!structureTypesData?.data?.fyMaster || selectedYear === "") return false;
+
+        const selectedFyConfig = structureTypesData.data.fyMaster.find(
+            fy => fy.pklSalaryFinancialYearId === selectedYear
+        );
+        if (!selectedFyConfig) return false;
+
+        const allSameYearConfigs = structureTypesData.data.fyMaster.filter(
+            fy => fy.vsFy === selectedFyConfig.vsFy
+        );
+        if (allSameYearConfigs.length <= 1) return false;
+
+        const m = parseInt(monthValue);
+        const getScore = (val: number) => (val < 4 ? val + 12 : val);
+        const mScore = getScore(m);
+        const selectedStartScore = getScore(selectedFyConfig.iStartMonth);
+
+        // A month is disabled if it's before the current FY start
+        if (mScore < selectedStartScore) return true;
+
+        // Or if there's another config that starts after the current one but before/at this month
+        return allSameYearConfigs.some(other => {
+            if (other.pklSalaryFinancialYearId === selectedYear) return false;
+            const oScore = getScore(other.iStartMonth);
+            return oScore > selectedStartScore && oScore <= mScore;
+        });
     };
+
+    // Auto-select valid month if current selection becomes disabled
+    useEffect(() => {
+        if (selectedYear !== "" && isMonthDisabled(selectedMonth)) {
+            const firstValidMonth = months.find(m => !isMonthDisabled(m.value));
+            if (firstValidMonth) {
+                setSelectedMonth(firstValidMonth.value);
+            }
+        }
+    }, [selectedYear, selectedMonth, structureTypesData]);
+
 
     const handleExportReport = () => {
         // Use currentTableData if available (contains user edits), otherwise fall back to API data
@@ -112,26 +163,8 @@ export const SalaryTransfer = () => {
         }
     };
 
-    const handleSubmit = async () => {
-        // Use currentTableData if available (contains user edits), otherwise fall back to API data
-        const employeeData = currentTableData.length > 0 ? currentTableData : (employeeListData?.employeeList || []);
-
-        // If no employees selected, use all employees; otherwise use selected ones
-        const employeesToSubmit = selectedEmployeeIds.length > 0
-            ? employeeData.filter((emp: any) => {
-                const empId = emp.pklSalaryBreakingAsdmNescEmployeeWiseId || emp.employeeId;
-                return empId && selectedEmployeeIds.includes(empId);
-            })
-            : employeeData;
-
-        if (employeesToSubmit.length === 0) {
-            toast.error("No employees to submit");
-            return;
-        }
-
-        // Prepare payload with edited values
-        // Send null instead of 0 when no value is set
-        const generateEmployees = employeesToSubmit.map((emp: any) => ({
+    const runGeneration = async (employeesToProcess: any[]) => {
+        const generateEmployees = employeesToProcess.map((emp: any) => ({
             employeeId: emp.employeeId,
             attendance: emp.attendance ?? null,
             lwp: emp.lwpDays ?? null,
@@ -147,38 +180,39 @@ export const SalaryTransfer = () => {
             generateEmployees,
         };
 
-        console.log("Payload being sent:", JSON.stringify(payload, null, 2));
-
         try {
             const response = await generateSalaryMutation.mutateAsync(payload);
-
             const successCount = response.sucessReport.successfullyGenerateCount;
             const failedCount = response.sucessReport.failedGenerateCount;
 
-            if (failedCount > 0 && successCount === 0) {
-                // All failed
-                toast.error(
-                    `Salary generation failed. Success: ${successCount} | Failed: ${failedCount}`,
-                    { duration: 6000 }
-                );
-            } else if (failedCount > 0 && successCount > 0) {
-                // Partial success
-                toast.success(
-                    `Success: ${successCount} | Failed: ${failedCount}`,
-                    { duration: 5000 }
-                );
-                setSelectedEmployeeIds([]);
-            } else {
-                // Full success
-                toast.success(
-                    `Salary generated successfully. Success: ${successCount}`,
-                    { duration: 4000 }
-                );
-                setSelectedEmployeeIds([]);
-            }
+            setResultCounts({ success: successCount, failed: failedCount });
+            setResultDialogOpen(true);
         } catch (error: any) {
             const errorMessage = error?.response?.data?.message;
             toast.error(errorMessage || "Failed to generate salary. Please try again.");
+        }
+    };
+
+    const handleSubmit = async () => {
+        const employeeData = currentTableData.length > 0 ? currentTableData : (employeeListData?.employeeList || []);
+        if (employeeData.length === 0) {
+            toast.error("No employees to submit");
+            return;
+        }
+
+        const validEmployees = employeeData.filter((emp: any) => emp.attendance !== null && emp.attendance !== undefined && emp.attendance > 0);
+        const skipped = employeeData.length - validEmployees.length;
+
+        if (validEmployees.length === 0) {
+            toast.error("No employees with valid attendance found.");
+            return;
+        }
+
+        if (skipped > 0) {
+            setCounts({ skipped, valid: validEmployees.length });
+            setConfirmDialogOpen(true);
+        } else {
+            runGeneration(validEmployees);
         }
     };
 
@@ -253,7 +287,6 @@ export const SalaryTransfer = () => {
                     <SalarySheetTable
                         data={employeeData as any}
                         onDataChange={handleSalaryDataChange}
-                        onSelectionChange={handleSelectionChange}
                         month={selectedMonth}
                         year={selectedYear ? selectedYear.toString() : ""}
                     />
@@ -271,7 +304,6 @@ export const SalaryTransfer = () => {
                     <SalarySheetTable
                         data={employeeData as any}
                         onDataChange={handleSalaryDataChange}
-                        onSelectionChange={handleSelectionChange}
                         month={selectedMonth}
                         year={selectedYear ? selectedYear.toString() : ""}
                     />
@@ -332,7 +364,14 @@ export const SalaryTransfer = () => {
                                 onChange={(e) => setSelectedMonth(e.target.value)}
                             >
                                 {months.map((month) => (
-                                    <MenuItem key={month.value} value={month.value}>
+                                    <MenuItem
+                                        key={month.value}
+                                        value={month.value}
+                                        disabled={isMonthDisabled(month.value)}
+                                        sx={{
+                                            display: isMonthDisabled(month.value) ? 'none' : 'flex'
+                                        }}
+                                    >
                                         {month.label}
                                     </MenuItem>
                                 ))}
@@ -361,11 +400,6 @@ export const SalaryTransfer = () => {
                     {/* Actions Group */}
                     {selectedStructureType && selectedMonth && selectedYear !== "" && (
                         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
-                            {selectedEmployeeIds.length > 0 && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-                                    {selectedEmployeeIds.length} selected
-                                </Typography>
-                            )}
                             {selectedStructureType === "ASDM_NESC" && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
                                 <Button
                                     variant="outlined"
@@ -384,12 +418,18 @@ export const SalaryTransfer = () => {
                                     color="primary"
                                     size="small"
                                     onClick={handleSubmit}
-                                    disabled={generateSalaryMutation.isPending || isLoadingEmployees}
+                                    disabled={
+                                        generateSalaryMutation.isPending ||
+                                        isLoadingEmployees ||
+                                        employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
+                                    }
                                     startIcon={generateSalaryMutation.isPending ? <CircularProgress size={20} /> : null}
                                 >
                                     {generateSalaryMutation.isPending
                                         ? "Generating..."
-                                        : `Generate Salary ${selectedEmployeeIds.length > 0 ? `(${selectedEmployeeIds.length})` : "(All)"}`
+                                        : employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
+                                            ? "Salary Generated"
+                                            : "Generate Salary"
                                     }
                                 </Button>
                             )}
@@ -400,6 +440,89 @@ export const SalaryTransfer = () => {
             <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
                 {renderTable()}
             </Box>
+
+            {/* Confirmation Dialog */}
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'warning.main', fontWeight: 700 }}>
+                    <WarningAmberIcon fontSize="large" />
+                    Pending Attendance Data
+                </DialogTitle>
+                <Divider />
+                <DialogContent>
+                    <DialogContentText sx={{ color: 'text.primary', fontSize: '1rem', mb: 2 }}>
+                        We found <strong>{counts.skipped}</strong> employee(s) who don't have attendance recorded for this period.
+                    </DialogContentText>
+                    <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                        Salaries will <strong>NOT</strong> be generated for records with zero or empty attendance.
+                        Do you want to proceed with the remaining <strong>{counts.valid}</strong> employee(s)?
+                    </Alert>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button
+                        onClick={() => setConfirmDialogOpen(false)}
+                        variant="outlined"
+                        color="inherit"
+                        sx={{ borderRadius: 2, textTransform: 'none' }}
+                    >
+                        Back to Edit
+                    </Button>
+                    <Button
+                        onClick={() => {
+                            setConfirmDialogOpen(false);
+                            const employeeData = currentTableData.length > 0 ? currentTableData : (employeeListData?.employeeList || []);
+                            const validEmployees = employeeData.filter((emp: any) => emp.attendance !== null && emp.attendance !== undefined && emp.attendance > 0);
+                            runGeneration(validEmployees);
+                        }}
+                        variant="contained"
+                        color="warning"
+                        sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+                        autoFocus
+                    >
+                        Proceed to Generate
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Result Summary Dialog */}
+            <Dialog
+                open={resultDialogOpen}
+                onClose={() => setResultDialogOpen(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 4, p: 2, textAlign: 'center' } }}
+            >
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+                    {resultCounts.failed > 0 ? (
+                        <ErrorOutlineIcon sx={{ fontSize: 80, color: resultCounts.success > 0 ? 'orange' : 'error.main', mb: 2 }} />
+                    ) : (
+                        <CheckCircleOutlineIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+                    )}
+
+                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                        {resultCounts.failed === 0 ? "Perfect!" : (resultCounts.success > 0 ? "Partially Generated" : "Generation Failed")}
+                    </Typography>
+
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                        {resultCounts.failed === 0
+                            ? `Successfully generated salaries for all ${resultCounts.success} employees.`
+                            : `Successfully generated: ${resultCounts.success} | Failed: ${resultCounts.failed}`
+                        }
+                    </Typography>
+
+                    <Button
+                        onClick={() => setResultDialogOpen(false)}
+                        variant="contained"
+                        fullWidth
+                        sx={{ borderRadius: 2, py: 1.5, textTransform: 'none', fontSize: '1rem', fontWeight: 600 }}
+                    >
+                        Close Summary
+                    </Button>
+                </DialogContent>
+            </Dialog>
         </Box>
     );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -34,8 +34,9 @@ import {
 } from '../features/montly-salary-management/hooks/useSalaryBreakingMaster';
 import { useSalaryStructureTypes } from '../features/montly-salary-management/hooks/useGetSalaryFile';
 import { formatFyMaster } from '../utils/formatter';
-import { useMemo } from 'react';
-import { Info } from '@mui/icons-material';
+import { Info, History as HistoryIcon } from '@mui/icons-material';
+import { salaryFileApi } from '../api/salary/salary-file-api';
+import toast from 'react-hot-toast';
 
 const months = [
     { value: 1, label: "January" },
@@ -55,7 +56,7 @@ const months = [
 export default function BreakingMasterPage() {
     const { data: structureData } = useSalaryStructureTypes();
     const [selectedStructType, setSelectedStructType] = useState<string>('ASDM_NESC');
-    const [selectedFyId, setSelectedFyId] = useState<string>('');
+    const [selectedFyId, setSelectedFyId] = useState<string>('all');
 
     const { data: listData, isLoading: isLoadingList, error: listError } = useSalaryBreakingMaster(selectedStructType, selectedFyId);
     // Removed fetchFilters dependency as we use designationCategory from structureData
@@ -83,21 +84,87 @@ export default function BreakingMasterPage() {
         bEnabled: 1,
         fklSalaryFinancialYearId: '',
     });
+    const [isFetchingLastFy, setIsFetchingLastFy] = useState(false);
+
+    const handleFetchLastFyData = async () => {
+        if (!formData.fklDesignationCategoryId || !formData.fklSalaryFinancialYearId) {
+            toast.error("Please select Designation Category and Financial Year first");
+            return;
+        }
+
+        // Find the previous FY in the list
+        const currentIndex = formattedFyList.findIndex((f: any) => f.id.toString() === formData.fklSalaryFinancialYearId);
+        if (currentIndex <= 0) {
+            toast.error("No previous financial year found in the list");
+            return;
+        }
+
+        const lastFyId = formattedFyList[currentIndex - 1].id.toString();
+
+        setIsFetchingLastFy(true);
+        try {
+            const response = await salaryFileApi.getSalaryBreakingMaster(selectedStructType, lastFyId);
+            if (response.status === "success" && Array.isArray(response.data)) {
+                // Look for same designation category in last year's data
+                const lastFyRecord = response.data.find((item: any) =>
+                    item.fklDesignationCategoryId?.toString() === formData.fklDesignationCategoryId.toString()
+                );
+
+                if (lastFyRecord) {
+                    setFormData({
+                        ...formData,
+                        dBasicPay: lastFyRecord.dBasicPay ?? '',
+                        iWorkingDays: lastFyRecord.iWorkingDays ?? '',
+                        dIncrementParcentage: lastFyRecord.dIncrementParcentage ?? '',
+                        dHouseRentParcentage: lastFyRecord.dHouseRentParcentage ?? '',
+                        dMobileInternet: lastFyRecord.dMobileInternet ?? '',
+                        dNewsPaperMagazine: lastFyRecord.dNewsPaperMagazine ?? '',
+                        dConveyanceAllowances: lastFyRecord.dConveyanceAllowances ?? '',
+                        dEducationAllowance: lastFyRecord.dEducationAllowance ?? '',
+                        dArrear: lastFyRecord.dArrear ?? '',
+                        dDeductionOfPtax: lastFyRecord.dDeductionOfPtax ?? '',
+                        dDeductionOfIncomeTax: lastFyRecord.dDeductionOfIncomeTax ?? '',
+                        dOtherDeduction: lastFyRecord.dOtherDeduction ?? '',
+                    });
+                    toast.success("Form populated from last financial year successfully");
+                } else {
+                    toast.error("No record found for this designation in the last financial year");
+                }
+            } else {
+                toast.error("No records found for the last financial year");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("An error occurred while fetching last year's data");
+        } finally {
+            setIsFetchingLastFy(false);
+        }
+    };
 
     const formattedFyList = useMemo(() => {
         if (!structureData?.data?.fyMaster) return [];
         const formatted = formatFyMaster(structureData.data.fyMaster);
 
-        // Auto-select latest enabled FY if nothing is selected
-        if (formatted.length > 0 && !selectedFyId) {
-            const latestEnabled = structureData.data.fyMaster.find(f => f.bEnabled === 1);
-            if (latestEnabled) {
-                setSelectedFyId(latestEnabled.pklSalaryFinancialYearId.toString());
-            } else {
-                setSelectedFyId(formatted[formatted.length - 1].id.toString());
+        // Auto-select logic moved to useEffect to avoid state-update-during-render
+        return formatted;
+    }, [structureData, selectedFyId]);
+
+    // Effect to handle the auto-selection separately to avoid state-update-during-render
+    useEffect(() => {
+        if (structureData?.data?.fyMaster && structureData.data.fyMaster.length > 0 && selectedFyId === 'all') {
+            const sortedMaster = [...structureData.data.fyMaster].sort((a: any, b: any) => {
+                const yearA = parseInt(a.vsFy);
+                const yearB = parseInt(b.vsFy);
+                if (yearA !== yearB) return yearB - yearA;
+
+                const getMonthScore = (m: number) => (m < 4 ? m + 12 : m);
+                return getMonthScore(b.iStartMonth) - getMonthScore(a.iStartMonth);
+            });
+
+            if (sortedMaster.length > 0) {
+                setSelectedFyId(sortedMaster[0].pklSalaryFinancialYearId.toString());
             }
         }
-        return formatted;
     }, [structureData, selectedFyId]);
 
     const filteredDesignationCategories = useMemo(() => {
@@ -113,7 +180,7 @@ export default function BreakingMasterPage() {
         };
         const structId = structTypeMapping[selectedStructType];
 
-        return structureData.data.designationCategory.filter(cat => cat.fklSlarayStructureTypeId === structId);
+        return structureData.data.designationCategory.filter((cat: any) => cat.fklSlarayStructureTypeId === structId);
     }, [structureData, selectedStructType]);
 
 
@@ -156,7 +223,7 @@ export default function BreakingMasterPage() {
                 dDeductionOfIncomeTax: '',
                 dOtherDeduction: '',
                 bEnabled: 1,
-                fklSalaryFinancialYearId: selectedFyId !== 'all' ? selectedFyId : '',
+                fklSalaryFinancialYearId: '',
             });
         }
         setOpen(true);
@@ -208,7 +275,7 @@ export default function BreakingMasterPage() {
                             onChange={(e) => setSelectedFyId(e.target.value)}
                         >
                             <MenuItem value="all">All Years</MenuItem>
-                            {formattedFyList.map((fy) => (
+                            {formattedFyList.map((fy: any) => (
                                 <MenuItem key={fy.id} value={fy.id.toString()}>
                                     {fy.label}
                                 </MenuItem>
@@ -252,7 +319,7 @@ export default function BreakingMasterPage() {
                                         {item.vsDesignationCategoryName || structureData?.data?.designationCategory?.find(d => d.pklDesignationCategoryId === item.fklDesignationCategoryId)?.vsDesignationCategoryName || item.fklDesignationCategoryId}
                                     </TableCell>
                                     <TableCell>
-                                        {formattedFyList.find(f => f.id === (item.finalcialYearId || item.fklSalaryFinancialYearId))?.label || (
+                                        {formattedFyList.find((f: any) => f.id === (item.finalcialYearId || item.fklSalaryFinancialYearId))?.label || (
                                             item.finacialYear
                                                 ? `${item.finacialYear}-${parseInt(item.finacialYear) + 1}`
                                                 : item.fklSalaryFinancialYearId
@@ -260,7 +327,7 @@ export default function BreakingMasterPage() {
                                     </TableCell>
                                     <TableCell>
                                         {months.find(m => m.value === item.finacialYearMonth)?.label || item.finacialYearMonth || (
-                                            months.find(m => m.value === structureData?.data?.fyMaster?.find(fy => fy.pklSalaryFinancialYearId === item.fklSalaryFinancialYearId)?.iStartMonth)?.label || 'N/A'
+                                            months.find(m => m.value === structureData?.data?.fyMaster?.find((fy: any) => fy.pklSalaryFinancialYearId === item.fklSalaryFinancialYearId)?.iStartMonth)?.label || 'N/A'
                                         )}
                                     </TableCell>
                                     <TableCell>{item.dBasicPay}</TableCell>
@@ -312,7 +379,7 @@ export default function BreakingMasterPage() {
                                     label="Designation Category"
                                     onChange={(e) => setFormData({ ...formData, fklDesignationCategoryId: e.target.value })}
                                 >
-                                    {filteredDesignationCategories.map((d) => (
+                                    {filteredDesignationCategories.map((d: any) => (
                                         <MenuItem key={d.pklDesignationCategoryId} value={d.pklDesignationCategoryId.toString()}>{d.vsDesignationCategoryName}</MenuItem>
                                     ))}
                                 </Select>
@@ -326,7 +393,7 @@ export default function BreakingMasterPage() {
                                     label="Financial Year"
                                     onChange={(e) => setFormData({ ...formData, fklSalaryFinancialYearId: e.target.value })}
                                 >
-                                    {formattedFyList.map((fy) => (
+                                    {formattedFyList.map((fy: any) => (
                                         <MenuItem key={fy.id} value={fy.id.toString()}>
                                             {fy.label}
                                         </MenuItem>
@@ -334,6 +401,20 @@ export default function BreakingMasterPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
+                        {isEditing && !editingId && (
+                            <Grid item xs={12}>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={isFetchingLastFy ? <CircularProgress size={16} /> : <HistoryIcon />}
+                                    onClick={handleFetchLastFyData}
+                                    disabled={isFetchingLastFy || !formData.fklDesignationCategoryId || !formData.fklSalaryFinancialYearId}
+                                    sx={{ borderRadius: 2 }}
+                                >
+                                    {isFetchingLastFy ? 'Fetching...' : 'Get Last FY Breaking'}
+                                </Button>
+                            </Grid>
+                        )}
                         <Grid item xs={12} sm={4}>
                             <TextField
                                 fullWidth
