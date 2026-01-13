@@ -63,6 +63,13 @@ export interface SalaryStructureTypesResponse {
     statusCode: number;
 }
 
+export interface FyMasterResponse {
+    status: string;
+    message: string;
+    data: FyMaster[];
+    statusCode: number;
+}
+
 export interface EmployeeListPayload {
     salaryStructureType: string;
     generateMonth: string;
@@ -204,9 +211,9 @@ export const salaryFileApi = {
         return response.data;
     },
 
-    // Toggle financial year status
-    toggleFinancialYear: async (id: number): Promise<any> => {
-        const response = await API.post("/SalaryGenerate/financial-year-toggle", { pklSalaryFinancialYearId: id });
+    // Toggle masters (financial year, etc)
+    toggleMasters: async (id: number, toggleCard: string, card: string): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/toggle-masters", { id, toggleCard, card });
         return response.data;
     },
 
@@ -229,6 +236,12 @@ export const salaryFileApi = {
     // Toggle salary breaking master status
     toggleSalaryBreakingMaster: async (id: number): Promise<any> => {
         const response = await API.post("/SalaryGenerate/breaking-master-toggle", { pklSalaryBreakingAsdmNescId: id });
+        return response.data;
+    },
+
+    // Get financial year master data
+    getFyMaster: async (): Promise<FyMasterResponse> => {
+        const response = await API.post("/SalaryGenerate/fy-salary-master", {});
         return response.data;
     },
 };

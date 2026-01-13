@@ -28,9 +28,9 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
-import { useSalaryStructureTypes } from '../features/montly-salary-management/hooks/useGetSalaryFile';
-import { useSaveFinancialYear, useToggleFinancialYear } from '../features/montly-salary-management/hooks/useFinancialYear';
+import { useGetFyMaster, useSaveFinancialYear, useToggleFinancialYear } from '../features/montly-salary-management/hooks/useFinancialYear';
 import { formatToMediumDate } from '../utils/formatter';
+import { FyMaster } from '../api/salary/salary-file-api';
 
 const months = [
     { value: 1, label: "January" },
@@ -48,7 +48,7 @@ const months = [
 ];
 
 export default function FinancialYearPage() {
-    const { data: structureData, isLoading, error } = useSalaryStructureTypes();
+    const { data: fyData, isLoading, error } = useGetFyMaster();
     const saveMutation = useSaveFinancialYear();
     const toggleMutation = useToggleFinancialYear();
 
@@ -143,7 +143,7 @@ export default function FinancialYearPage() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {structureData?.data?.fyMaster?.map((fy) => (
+                        {fyData?.data?.map((fy: FyMaster) => (
                             <TableRow key={fy.pklSalaryFinancialYearId} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                 <TableCell>
                                     <Typography variant="body2" fontWeight={600} color="secondary.main">
