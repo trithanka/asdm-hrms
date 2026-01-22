@@ -163,11 +163,19 @@ export default function RootLayout() {
         </Drawer>
         <Box
           component="main"
-          sx={{ flexGrow: 1, p: 3, minHeight: "100vh" }}
-          bgcolor={grey[50]}
+          sx={{
+            flexGrow: 1,
+            height: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            bgcolor: grey[50],
+          }}
         >
           <DrawerHeader />
-          <Outlet />
+          <Box sx={{ flexGrow: 1, overflow: "auto", p: 3 }}>
+            <Outlet />
+          </Box>
         </Box>
       </Box>{" "}
     </>

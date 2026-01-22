@@ -23,6 +23,8 @@ import JobDetail from "./features/recruitment/pages/job-detail";
 import Applicants from "./features/recruitment/pages/applicants";
 import ApplicantDetail from "./features/recruitment/pages/applicant-detail";
 import { SalaryTransfer } from "./pages/salaryTransfer";
+import FinancialYearPage from "./pages/financial-year";
+import BreakingMasterPage from "./pages/breaking-master";
 
 
 const router = createBrowserRouter([
@@ -126,7 +128,20 @@ const router = createBrowserRouter([
       {
         path: "salary-transfer",
         element: <SalaryTransfer />
-      },  
+      },
+      {
+        path: "payroll",
+        children: [
+          {
+            path: "financial-year",
+            element: <FinancialYearPage />
+          },
+          {
+            path: "master",
+            element: <BreakingMasterPage />
+          }
+        ]
+      }
     ],
   },
   {

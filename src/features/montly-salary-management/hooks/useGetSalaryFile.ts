@@ -25,21 +25,21 @@ export const useSalaryStructureTypes = () => {
 export const useEmployeeList = (
     salaryStructureType?: string,
     generateMonth?: string,
-    generateYear?: string
+    financialYearId?: string
 ) => {
     return useQuery({
-        queryKey: ["employee-list", salaryStructureType, generateMonth, generateYear],
+        queryKey: ["employee-list", salaryStructureType, generateMonth, financialYearId],
         queryFn: () => {
-            if (!salaryStructureType || !generateMonth || !generateYear) {
+            if (!salaryStructureType || !generateMonth || !financialYearId) {
                 return Promise.resolve({ status: "success", message: "", employeeList: [], statusCode: 200 });
             }
             return salaryFileApi.getEmployeeList({
                 salaryStructureType,
                 generateMonth,
-                generateYear,
+                generateYear: financialYearId.toString(),
             });
         },
-        enabled: !!salaryStructureType && !!generateMonth && !!generateYear,
+        enabled: !!salaryStructureType && !!generateMonth && !!financialYearId,
     });
 };
 

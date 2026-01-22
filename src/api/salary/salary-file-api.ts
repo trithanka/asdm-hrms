@@ -44,13 +44,29 @@ export interface FyMaster {
     dtCreatedAt: string;
 }
 
+export interface DesignationCategory {
+    pklDesignationCategoryId: number;
+    vsDesignationCategoryName: string;
+    fklSlarayStructureTypeId: number;
+    fklModifiedByLoginId: number;
+    dtModifiedDate: string;
+}
+
 export interface SalaryStructureTypesResponse {
     status: string;
     message: string;
     data: {
         salaryStructureTypes: SalaryStructureType[];
         fyMaster: FyMaster[];
+        designationCategory: DesignationCategory[];
     };
+    statusCode: number;
+}
+
+export interface FyMasterResponse {
+    status: string;
+    message: string;
+    data: FyMaster[];
     statusCode: number;
 }
 
@@ -72,9 +88,11 @@ export interface EmployeeData {
     lwpDays: number | null;
     basicPay: number;
     incrementPercentage: number;
+    incrementPercentValueFy: number | null;
     fullSalary: number | null;
     salary: number | null;
     houseRent: number;
+    houseRentPercentValue: number | null;
     mobileInternet: number;
     newsPaperMagazine: number;
     conveyanceAllowances: number;
@@ -184,6 +202,46 @@ export const salaryFileApi = {
     // Get salary slip
     getSalarySlip: async (payload: SalarySlipPayload): Promise<SalarySlipResponse> => {
         const response = await API.post("/SalaryGenerate/salary-slip", payload);
+        return response.data;
+    },
+
+    // Create/Update financial year
+    saveFinancialYear: async (payload: { vsFy: string, iStartMonth: number, bEnabled: number, pklSalaryFinancialYearId?: number }): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/financial-year-save", payload);
+        return response.data;
+    },
+
+    // Toggle masters (financial year, etc)
+    toggleMasters: async (id: number, toggleCard: string, card: string): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/toggle-masters", { id, toggleCard, card });
+        return response.data;
+    },
+
+    // Get salary breaking master
+    getSalaryBreakingMaster: async (structType: string, fyId?: string): Promise<any> => {
+        const payload: any = { structType };
+        if (fyId && fyId !== "all") {
+            payload.FinancialYearId = Number(fyId);
+        }
+        const response = await API.post("/SalaryGenerate/salary-breaking", payload);
+        return response.data;
+    },
+
+    // Save/Update salary breaking master
+    saveSalaryBreakingMaster: async (payload: any): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/breaking-master-save", payload);
+        return response.data;
+    },
+
+    // Toggle salary breaking master status
+    toggleSalaryBreakingMaster: async (id: number): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/breaking-master-toggle", { pklSalaryBreakingAsdmNescId: id });
+        return response.data;
+    },
+
+    // Get financial year master data
+    getFyMaster: async (): Promise<FyMasterResponse> => {
+        const response = await API.post("/SalaryGenerate/fy-salary-master", {});
         return response.data;
     },
 };

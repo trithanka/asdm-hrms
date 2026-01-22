@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
     Paper,
     Table,
@@ -8,12 +8,13 @@ import {
     TableHead,
     TableRow,
     TextField,
-    Checkbox,
     Tooltip,
     IconButton,
     CircularProgress,
 } from "@mui/material";
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import { generateSalarySlip } from "../utils/generateSalarySlip";
 import { useSalarySlip } from "../hooks/useGetSalaryFile";
 import toast from "react-hot-toast";
@@ -28,9 +29,11 @@ export interface SalarySheetData {
     lwpDays: number | null;
     basicPay: number;
     incrementPercentage: number;
+    incrementPercentValueFy: number | null;
     fullSalary: number | null;
     salary: number | null;
     houseRent: number;
+    houseRentPercentValue: number | null;
     mobileInternet: number;
     newsPaperMagazine: number;
     conveyanceAllowances: number;
@@ -43,40 +46,97 @@ export interface SalarySheetData {
     totalDeduction: number | null;
     netAmount: number | null;
     salaryStatus: string;
+    workingDays?: number;
 }
 
 interface SalarySheetTableProps {
     data: SalarySheetData[];
     onDataChange?: (updatedData: SalarySheetData[]) => void;
-    onSelectionChange?: (selectedIds: number[]) => void;
     month?: string;
     year?: string;
 }
 
-export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month = "", year = "" }: SalarySheetTableProps) => {
+export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: SalarySheetTableProps) => {
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
-    const [selected, setSelected] = useState<number[]>([]);
     const [generatingId, setGeneratingId] = useState<number | null>(null);
-    const lastMonthYearRef = useRef<string>(`${month}-${year}`);
 
     const salarySlipMutation = useSalarySlip();
 
-    // Update table data when month/year changes
-    useEffect(() => {
-        const currentMonthYear = `${month}-${year}`;
-        if (currentMonthYear !== lastMonthYearRef.current) {
-            // Month/year changed - reset data with new data
-            setTableData(data);
-            lastMonthYearRef.current = currentMonthYear;
-        }
-    }, [month, year, data]);
+    const recalculateRow = (row: SalarySheetData) => {
+        // If already generated, return as is (do not recalculate)
+        if (row.salaryStatus === "generated") return row;
 
-    // Initial load - only when table is empty
-    useEffect(() => {
-        if (tableData.length === 0 && data.length > 0) {
-            setTableData(data);
+        // Find original values from the 'data' prop (API data) as base
+        const originalRow = data.find(r => (r.pklSalaryBreakingAsdmNescEmployeeWiseId || r.employeeId) === (row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId));
+        if (!originalRow) return row;
+
+        const workingDays = Number((originalRow as any).workingDays || row.workingDays || 30);
+        const attendance = Number(row.attendance ?? 0);
+
+        // Base monthly values from the original row (masters)
+        const baseBasicPay = Number(originalRow.basicPay || 0);
+        const incrementPercentage = Number(originalRow.incrementPercentage || 0);
+
+        // Use fullSalary from row if it exists (it's often pre-calculated by backend with last FY logic)
+        // fall back to calculating from basic + increment
+        let fullSalary = Number(row.fullSalary || originalRow.fullSalary || 0);
+        if (!fullSalary) {
+            const incrementAmount = (baseBasicPay * incrementPercentage) / 100;
+            fullSalary = baseBasicPay + incrementAmount;
         }
-    }, [data, tableData.length]);
+
+        // formulas from user
+        const salary = (fullSalary / workingDays) * attendance;
+
+        const houseRentPercent = Number(row.houseRent || originalRow.houseRent || 0);
+        const houseRentAmount = (salary * houseRentPercent) / 100;
+
+        const baseMobile = Number(originalRow.mobileInternet || 0);
+        const mobileInternet = (baseMobile / workingDays) * attendance;
+
+        const baseNews = Number(originalRow.newsPaperMagazine || 0);
+        const newsPaperMagazine = (baseNews / workingDays) * attendance;
+
+        const baseConv = Number(originalRow.conveyanceAllowances || 0);
+        const conveyanceAllowances = (baseConv / workingDays) * attendance;
+
+        const baseEdu = Number(originalRow.educationAllowance || 0);
+        const educationAllowance = (baseEdu / workingDays) * attendance;
+
+        const arrear = Number(row.arrear || 0);
+        const totalSalary = salary + houseRentAmount + mobileInternet + newsPaperMagazine + conveyanceAllowances + educationAllowance + arrear;
+
+        const pTax = Number(row.deductionOfPtax || 0);
+        const incTax = Number(row.deductionIncomeTax || 0);
+        const otherDed = Number(row.ddvancesOtherDeductions || 0);
+
+        const totalDeduction = pTax + incTax + otherDed;
+        const netAmount = totalSalary - totalDeduction;
+
+        const incrementPercentValueFy = (baseBasicPay * incrementPercentage) / 100;
+
+        return {
+            ...row,
+            incrementPercentValueFy,
+            salary,
+            houseRentPercentValue: houseRentAmount,
+            mobileInternet,
+            newsPaperMagazine,
+            conveyanceAllowances,
+            educationAllowance,
+            totalSalary,
+            totalDeduction,
+            netAmount
+        };
+    };
+
+    // Update table data when month/year changes or data arrives
+    useEffect(() => {
+        if (data.length > 0) {
+            const calculatedData = data.map(row => recalculateRow(row));
+            setTableData(calculatedData);
+        }
+    }, [data, month, year]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -84,12 +144,11 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
         field: keyof SalarySheetData
     ) => {
         const { value } = e.target;
-        const updatedData = tableData.map((row, index) => {
-            // Use employeeId as fallback if pklSalaryBreakingAsdmNescEmployeeWiseId is null
+        const updatedData = tableData.map((row, idx) => {
             const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
             const matchId = id ?? rowId;
-            
-            if (rowId === matchId || (id === null && index === tableData.indexOf(row))) {
+
+            if (rowId === matchId || (id === null && idx === tableData.indexOf(row))) {
                 return {
                     ...row,
                     [field]:
@@ -105,51 +164,31 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
             }
             return row;
         });
-        setTableData(updatedData);
-        if (onDataChange) {
-            onDataChange(updatedData);
-        }
-    };
 
-    const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.checked) {
-            const newSelected = tableData.map((n) => n.pklSalaryBreakingAsdmNescEmployeeWiseId || n.employeeId);
-            setSelected(newSelected);
-            if (onSelectionChange) {
-                onSelectionChange(newSelected);
+        // Apply calculations to the changed row
+        const recalculatedData = updatedData.map((row) => {
+            const rowIdVal = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
+            const matchIdVal = id ?? rowIdVal;
+            if (rowIdVal === matchIdVal) {
+                return recalculateRow(row);
             }
-            return;
-        }
-        setSelected([]);
-        if (onSelectionChange) {
-            onSelectionChange([]);
-        }
-    };
+            return row;
+        });
 
-    const handleRowClick = (id: number) => {
-        const selectedIndex = selected.indexOf(id);
-        let newSelected: number[] = [];
-
-        if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selected, id);
-        } else if (selectedIndex === 0) {
-            newSelected = newSelected.concat(selected.slice(1));
-        } else if (selectedIndex === selected.length - 1) {
-            newSelected = newSelected.concat(selected.slice(0, -1));
-        } else if (selectedIndex > 0) {
-            newSelected = newSelected.concat(
-                selected.slice(0, selectedIndex),
-                selected.slice(selectedIndex + 1)
-            );
-        }
-
-        setSelected(newSelected);
-        if (onSelectionChange) {
-            onSelectionChange(newSelected);
+        setTableData(recalculatedData);
+        if (onDataChange) {
+            onDataChange(recalculatedData);
         }
     };
 
-    const isSelected = (id: number) => selected.indexOf(id) !== -1;
+
+    const formatValue = (value: number | null | undefined) => {
+        if (value === null || value === undefined) return "0.00";
+        return value.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
 
     const handleGenerateReceipt = async (row: SalarySheetData) => {
         if (!month || !year) {
@@ -164,7 +203,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
             const response = await salarySlipMutation.mutateAsync({
                 employeeId: row.employeeId.toString(),
                 generateMonth: month,
-                generateYear: year,
+                generateYear: year.toString(),
             });
 
             if (response.status === "success" && response.data && response.data.length > 0) {
@@ -182,164 +221,261 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
     };
 
     return (
-        <TableContainer component={Paper} sx={{ mt: 3, overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 380px)", width: "100%", maxWidth: "100%" }}>
+        <TableContainer
+            component={Paper}
+            sx={{
+                mt: 3,
+                overflowX: "auto",
+                overflowY: "auto",
+                maxHeight: "calc(100vh - 280px)",
+                width: "100%",
+                maxWidth: "100%",
+                position: "relative"
+            }}
+        >
             <Table sx={{ minWidth: 1600 }} size="small" stickyHeader>
                 <TableHead>
                     <TableRow sx={{ userSelect: "none" }}>
-                        <TableCell padding="checkbox" sx={{ fontWeight: 600, border: "1px solid #ddd" }}>
-                            <Checkbox
-                                color="primary"
-                                indeterminate={selected.length > 0 && selected.length < tableData.length}
-                                checked={tableData.length > 0 && selected.length === tableData.length}
-                                onChange={handleSelectAllClick}
-                            />
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                position: "sticky",
+                                left: 0,
+                                zIndex: 11,
+                                bgcolor: "#f5f5f5",
+                                textAlign: "center",
+                                minWidth: 60,
+                            }}
+                        >
+                            Status
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                userSelect: "none",
+                                position: "sticky",
+                                left: 48,
+                                zIndex: 11,
+                                bgcolor: "#f5f5f5",
+                                minWidth: 150,
+                            }}
+                        >
                             Name
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                userSelect: "none",
+                                minWidth: 150,
+                            }}
+                        >
                             Designation/Category
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#e3f2fd", userSelect: "none", textAlign: "center", minWidth: 100 }}>
                             Attendance
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", backgroundColor: "#f5f5f5", userSelect: "none" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#e3f2fd", userSelect: "none", textAlign: "center", minWidth: 100 }}>
                             LWP Days
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#fff3e0", userSelect: "none", textAlign: "right", minWidth: 110 }}>
                             Basic Pay
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
                                 backgroundColor: "#ff9800",
                                 color: "white",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 120,
                             }}
                         >
-                            Increment %
+                            Incr ({tableData[0]?.incrementPercentage || 0}%)
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#fff3e0", userSelect: "none", textAlign: "right", minWidth: 110 }}>
                             Salary
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
-                            House Rent
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 110 }}>
+                            HRA ({tableData[0]?.houseRent || 0}%)
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
-                            Mobile/Internet
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 120 }}>
+                            Mob/Int
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
-                            News Paper/Magazine
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 120 }}>
+                            News/Mag
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
-                            Conveyance Allowance
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 140 }}>
+                            Conv. Allw
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
-                            Education Allowance
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 140 }}>
+                            Edu. Allw
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, border: "1px solid #ddd", userSelect: "none" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#c8e6c9", userSelect: "none", textAlign: "right", minWidth: 100 }}>
                             Arrear
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: "#d4edda",
+                                backgroundColor: "#4caf50",
+                                color: "white",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 120,
                             }}
                         >
                             Total Pay
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
                                 backgroundColor: "#fff9c4",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 120,
                             }}
                         >
-                            Deduction of PTax
+                            P-Tax
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
                                 backgroundColor: "#fff9c4",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 120,
                             }}
                         >
-                            Deduction Income Tax
+                            Inc Tax
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: "#c8e6c9",
+                                backgroundColor: "#fff9c4",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 140,
                             }}
                         >
-                            Advances/Other Deductions
+                            Adv/Oth Ded
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: "#c8e6c9",
+                                backgroundColor: "#fbc02d",
+                                color: "white",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 130,
                             }}
                         >
-                            Total Deduction
+                            Total Ded
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: "#c8e6c9",
+                                backgroundColor: "#00796b",
+                                color: "white",
                                 userSelect: "none",
+                                textAlign: "right",
+                                minWidth: 130,
                             }}
                         >
                             Net Amount
                         </TableCell>
                         <TableCell
                             sx={{
-                                fontWeight: 600,
-                                border: "1px solid #ddd",
-                                backgroundColor: "#e1bee7",
-                                userSelect: "none",
-                            }}
-                        >
-                            Salary Status
-                        </TableCell>
-                        <TableCell
-                            sx={{
-                                fontWeight: 600,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
                                 userSelect: "none",
                                 textAlign: "center",
+                                minWidth: 100,
                             }}
                         >
-                            Action
+                            Acn
                         </TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
                     {tableData.map((row) => {
                         const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
-                        const isItemSelected = isSelected(rowId);
                         return (
-                            <TableRow key={rowId} hover selected={isItemSelected}>
-                                <TableCell padding="checkbox" sx={{ border: "1px solid #ddd" }}>
-                                    <Checkbox
-                                        color="primary"
-                                        checked={isItemSelected}
-                                        onChange={() => handleRowClick(rowId)}
-                                    />
+                            <TableRow key={rowId} hover>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        position: "sticky",
+                                        left: 0,
+                                        bgcolor: "white",
+                                        zIndex: 11,
+                                        textAlign: "center"
+                                    }}
+                                >
+                                    {row.salaryStatus === "generated" ? (
+                                        <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />
+                                    ) : (
+                                        <ReportProblemIcon fontSize="small" sx={{ color: 'warning.main' }} />
+                                    )}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd" }}>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        position: "sticky",
+                                        left: 60,
+                                        zIndex: 11,
+                                        bgcolor: "white",
+                                        minWidth: 150,
+                                    }}
+                                >
                                     {row.fullName}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd" }}>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd"
+                                    }}
+                                >
                                     {row.designationCategory}
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5 }}>
@@ -348,6 +484,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         type="number"
                                         value={row.attendance ?? ""}
                                         onChange={(e) => handleChange(e, rowId, "attendance")}
+                                        inputProps={{ min: 0, max: 31 }}
                                         sx={{
                                             "& .MuiOutlinedInput-root": {
                                                 fontSize: "0.875rem",
@@ -365,6 +502,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         type="number"
                                         value={row.lwpDays ?? ""}
                                         onChange={(e) => handleChange(e, rowId, "lwpDays")}
+                                        inputProps={{ min: 0 }}
                                         sx={{
                                             "& .MuiOutlinedInput-root": {
                                                 fontSize: "0.875rem",
@@ -376,8 +514,8 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         }}
                                     />
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.basicPay.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1" }}>
+                                    {formatValue(row.basicPay)}
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -386,25 +524,25 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         backgroundColor: "#fff3e0",
                                     }}
                                 >
-                                    {row.incrementPercentage}%
+                                    {formatValue(row.incrementPercentValueFy)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{(row.salary ?? 0).toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1" }}>
+                                    {formatValue(row.salary)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.houseRent.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                                    {formatValue(row.houseRentPercentValue)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.mobileInternet.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                                    {formatValue(row.mobileInternet)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.newsPaperMagazine.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                                    {formatValue(row.newsPaperMagazine)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.conveyanceAllowances.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                                    {formatValue(row.conveyanceAllowances)}
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right" }}>
-                                    ₹{row.educationAllowance.toLocaleString()}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                                    {formatValue(row.educationAllowance)}
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", p: 0.5 }}>
                                     <TextField
@@ -412,9 +550,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         type="number"
                                         value={row.arrear ?? ""}
                                         onChange={(e) => handleChange(e, rowId, "arrear")}
-                                        InputProps={{
-                                            startAdornment: "₹",
-                                        }}
+                                        inputProps={{ min: 0 }}
                                         sx={{
                                             "& .MuiOutlinedInput-root": {
                                                 fontSize: "0.875rem",
@@ -431,10 +567,10 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         border: "1px solid #ddd",
                                         textAlign: "right",
                                         fontWeight: 600,
-                                        backgroundColor: "#e8f5e9",
+                                        backgroundColor: "#f1f8e9",
                                     }}
                                 >
-                                    ₹{(row.totalSalary ?? 0).toLocaleString()}
+                                    {formatValue(row.totalSalary)}
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -443,7 +579,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         backgroundColor: "#fffde7",
                                     }}
                                 >
-                                    ₹{(row.deductionOfPtax ?? 0).toLocaleString()}
+                                    {formatValue(row.deductionOfPtax)}
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -458,9 +594,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         type="number"
                                         value={row.deductionIncomeTax ?? ""}
                                         onChange={(e) => handleChange(e, rowId, "deductionIncomeTax")}
-                                        InputProps={{
-                                            startAdornment: "₹",
-                                        }}
+                                        inputProps={{ min: 0 }}
                                         sx={{
                                             backgroundColor: "#fffde7",
                                             "& .MuiOutlinedInput-root": {
@@ -477,7 +611,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                     sx={{
                                         border: "1px solid #ddd",
                                         textAlign: "right",
-                                        backgroundColor: "#e0f2f1",
+                                        backgroundColor: "#fffde7",
                                         p: 0.5,
                                     }}
                                 >
@@ -486,11 +620,9 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         type="number"
                                         value={row.ddvancesOtherDeductions ?? ""}
                                         onChange={(e) => handleChange(e, rowId, "ddvancesOtherDeductions")}
-                                        InputProps={{
-                                            startAdornment: "₹",
-                                        }}
+                                        inputProps={{ min: 0 }}
                                         sx={{
-                                            backgroundColor: "#e0f2f1",
+                                            backgroundColor: "#fffde7",
                                             "& .MuiOutlinedInput-root": {
                                                 fontSize: "0.875rem",
                                             },
@@ -506,10 +638,10 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         border: "1px solid #ddd",
                                         textAlign: "right",
                                         fontWeight: 600,
-                                        backgroundColor: "#e0f2f1",
+                                        backgroundColor: "#fffde7",
                                     }}
                                 >
-                                    ₹{(row.totalDeduction ?? 0).toLocaleString()}
+                                    {formatValue(row.totalDeduction)}
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -520,22 +652,11 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                                         color: "#00695c",
                                     }}
                                 >
-                                    ₹{(row.netAmount ?? 0).toLocaleString()}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "center",
-                                        fontWeight: 600,
-                                        color: row.salaryStatus === "generated" ? "green" : "orange",
-                                        textTransform: "capitalize",
-                                    }}
-                                >
-                                    {row.salaryStatus}
+                                    {formatValue(row.netAmount)}
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
                                     {row.salaryStatus === "generated" && (
-                                        <Tooltip title="Generate Salary Receipt">
+                                        <Tooltip title="Generate Salary Slip">
                                             <span>
                                                 <IconButton
                                                     size="small"
@@ -557,7 +678,7 @@ export const SalarySheetTable = ({ data, onDataChange, onSelectionChange, month 
                         );
                     })}
                 </TableBody>
-            </Table>
-        </TableContainer>
+            </Table >
+        </TableContainer >
     );
 };

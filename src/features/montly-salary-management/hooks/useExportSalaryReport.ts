@@ -10,9 +10,11 @@ interface SalarySheetData {
     lwpDays: number | null;
     basicPay: number;
     incrementPercentage: number;
+    incrementPercentValueFy: number | null;
     fullSalary: number | null;
     salary: number | null;
     houseRent: number;
+    houseRentPercentValue: number | null;
     mobileInternet: number;
     newsPaperMagazine: number;
     conveyanceAllowances: number;
@@ -55,9 +57,9 @@ export function exportAsdmNescSalaryReport(
         "Attendance": emp.attendance ?? 0,
         "LWP Days": emp.lwpDays ?? 0,
         "Basic Pay (₹)": emp.basicPay,
-        "Increment (%)": emp.incrementPercentage,
+        "Increment (₹)": emp.incrementPercentValueFy ?? 0,
         "Salary (₹)": emp.salary ?? 0,
-        "House Rent (₹)": emp.houseRent,
+        "House Rent (₹)": emp.houseRentPercentValue ?? 0,
         "Mobile/Internet (₹)": emp.mobileInternet,
         "News Paper/Magazine (₹)": emp.newsPaperMagazine,
         "Conveyance Allowance (₹)": emp.conveyanceAllowances,
@@ -78,8 +80,9 @@ export function exportAsdmNescSalaryReport(
             attendance: acc.attendance + (emp.attendance ?? 0),
             lwpDays: acc.lwpDays + (emp.lwpDays ?? 0),
             basicPay: acc.basicPay + emp.basicPay,
+            increment: acc.increment + (emp.incrementPercentValueFy ?? 0),
             salary: acc.salary + (emp.salary ?? 0),
-            houseRent: acc.houseRent + emp.houseRent,
+            houseRent: acc.houseRent + (emp.houseRentPercentValue ?? 0),
             mobileInternet: acc.mobileInternet + emp.mobileInternet,
             newsPaperMagazine: acc.newsPaperMagazine + emp.newsPaperMagazine,
             conveyanceAllowances: acc.conveyanceAllowances + emp.conveyanceAllowances,
@@ -96,6 +99,7 @@ export function exportAsdmNescSalaryReport(
             attendance: 0,
             lwpDays: 0,
             basicPay: 0,
+            increment: 0,
             salary: 0,
             houseRent: 0,
             mobileInternet: 0,
@@ -122,7 +126,7 @@ export function exportAsdmNescSalaryReport(
         "Attendance": totals.attendance,
         "LWP Days": totals.lwpDays,
         "Basic Pay (₹)": totals.basicPay,
-        "Increment (%)": "",
+        "Increment (₹)": totals.increment,
         "Salary (₹)": totals.salary,
         "House Rent (₹)": totals.houseRent,
         "Mobile/Internet (₹)": totals.mobileInternet,
