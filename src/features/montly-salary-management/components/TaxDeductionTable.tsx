@@ -24,8 +24,8 @@ interface TaxDeductionTableProps {
 
 export const TaxDeductionTable = ({ data }: TaxDeductionTableProps) => {
     return (
-        <TableContainer component={Paper} sx={{ mt: 3 }}>
-            <Table sx={{ minWidth: 650 }}>
+        <TableContainer component={Paper} sx={{ mt: 3, overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 380px)", width: "100%", maxWidth: "100%" }}>
+            <Table sx={{ minWidth: 650 }} stickyHeader>
                 <TableHead>
                     <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                         <TableCell sx={{ fontWeight: 600 }}>Employee ID</TableCell>
