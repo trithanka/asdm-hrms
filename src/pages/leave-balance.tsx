@@ -106,6 +106,7 @@ const stickyCellStyles = {
 export default function LeaveBalancePage() {
   const [rows, setRows] = useState<LeaveBalanceRow[]>([]);
   const [yearOptions, setYearOptions] = useState<MasterYearItem[]>([]);
+  const [globalYearEnd, setGlobalYearEnd] = useState("");
   const [savedRowIds, setSavedRowIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -128,6 +129,10 @@ export default function LeaveBalancePage() {
     if (!value.trim()) return 0;
     const parsedValue = Number(value);
     return Number.isNaN(parsedValue) ? 0 : parsedValue;
+  };
+
+  const getYearLabel = (yearId: string) => {
+    return yearOptions.find((year) => String(year.pklYearId) === yearId)?.vsYear ?? "";
   };
 
   const mapRowToPayload = (row: LeaveBalanceRow): LeavePayloadItem => ({
@@ -228,7 +233,28 @@ export default function LeaveBalancePage() {
     setSubmitted(false);
   };
 
+  const handleGlobalYearEndChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const selectedYearEnd = event.target.value;
+
+    setGlobalYearEnd(selectedYearEnd);
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        yearEnd: selectedYearEnd,
+      }))
+    );
+    setSavedRowIds([]);
+    setSubmitted(false);
+  };
+
   const openConfirmDialog = () => {
+    if (!globalYearEnd) {
+      toast.error("Please select Year End before submitting.");
+      return;
+    }
+
     if (savedRowIds.length === 0) {
       toast.error("Please save at least one employee before submitting.");
       return;
@@ -278,6 +304,21 @@ export default function LeaveBalancePage() {
         </Box>
 
         <Stack direction="row" spacing={1.5}>
+          <TextField
+            select
+            size="small"
+            label="Year End"
+            value={globalYearEnd}
+            onChange={handleGlobalYearEndChange}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">Select</MenuItem>
+            {yearOptions.map((year) => (
+              <MenuItem key={year.pklYearId} value={String(year.pklYearId)}>
+                {year.vsYear}
+              </MenuItem>
+            ))}
+          </TextField>
           <Button variant="outlined" onClick={handleSaveAll} disabled={isSubmitting || isLoading}>
             {allRowsSaved ? "Cancel All" : "Save All"}
           </Button>
@@ -528,23 +569,14 @@ export default function LeaveBalancePage() {
                     </TableCell>
                     <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
                       <TextField
-                        select
-                        className="disabled:bg-gray"
                         size="small"
                         fullWidth
-                        value={row.yearEnd}
-                        onChange={handleFieldChange(row.id, "yearEnd")}
-                      >
-                        <MenuItem value="">Select</MenuItem>
-                        {yearOptions.map((year) => (
-                          <MenuItem
-                            key={year.pklYearId}
-                            value={String(year.pklYearId)}
-                          >
-                            {year.vsYear}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                        value={getYearLabel(row.yearEnd)}
+                        InputProps={{ readOnly: true }}
+                        inputProps={{
+                          style: { textAlign: "center" },
+                        }}
+                      />
                     </TableCell>
                     <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
                       <IconButton

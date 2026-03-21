@@ -17,8 +17,6 @@ import { Outlet } from "react-router-dom";
 import Profile from "../components/ui/profile";
 import NavList from "../features/dashboard/components/navigation/nav-list";
 import Notification from "../features/notification/notification";
-import API from "../api";
-import { useAuthHeader } from "react-auth-kit";
 import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { updatePassword } from "../api/authenticate";
@@ -108,16 +106,6 @@ export default function RootLayout() {
   };
 
   const toggleDrawerState = () => setOpen((prev) => !prev);
-
-  const authHeader = useAuthHeader();
-
-  React.useEffect(() => {
-    API.interceptors.request.use(function (config) {
-      const token = authHeader();
-      config.headers.Authorization = token ?? "";
-      return config;
-    });
-  }, []);
 
   React.useEffect(() => {
     const shouldForcePasswordChange = localStorage.getItem("forcePasswordChange") === "1";
