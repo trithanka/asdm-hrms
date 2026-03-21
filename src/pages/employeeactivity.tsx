@@ -9,6 +9,21 @@ import { formatDate } from "../utils/formatter";
 import { FaEye } from "react-icons/fa";
 import moment from "moment";
 
+const buildFullName = (row: any) =>
+  row.fullName ||
+  [row.firstName, row.middleName, row.lastName].filter(Boolean).join(" ");
+
+const normalizeEmployeeActivityRow = (row: any) => ({
+  ...row,
+  id: row.id ?? row.registrationId ?? row.empId,
+  fullName: buildFullName(row),
+  designation: row.designation ?? row.departmentName ?? "N/A",
+  departmentName: row.departmentName ?? row.department ?? "",
+  joiningDate: row.joiningDate ? formatDate(row.joiningDate) : "N/A",
+  releaseDate: row.releaseDate ?? null,
+  location: row.location ?? row.departmentName ?? "N/A",
+});
+
 export default function EmployeeActivity() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -21,6 +36,8 @@ export default function EmployeeActivity() {
     queryKey: [`staff${param}`],
     queryFn: () => fetchEmployeeActivity(param!),
   });
+
+  const activityData = (data?.data ?? []).map(normalizeEmployeeActivityRow);
 
   const columnHelper = createColumnHelper<any>();
 
@@ -129,7 +146,7 @@ export default function EmployeeActivity() {
     <>
       {isLoading ? (
         <p>Loading...</p>
-      ) : data.data ? (
+      ) : data?.data ? (
         <div>
           <Box
             display={"flex"}
@@ -143,14 +160,20 @@ export default function EmployeeActivity() {
                   ? "Absent Employees Data"
                   : param == "leave"
                     ? "Leave Employees Data"
-                    : null}{" "}
+                    : param == "resigned"
+                      ? "Resigned Employees Data"
+                      : param == "active"
+                        ? "Active Employees Data"
+                        : param == "joined"
+                          ? "Joined Employees Data"
+                          : "Employees Data"}{" "}
               ({moment(Date.now()).format("DD/MM/YYYY")})
             </h2>
             <BackButton />
           </Box>
           <EmployeeActivityTable
             columns={columns}
-            data={data?.data}
+            data={activityData}
             route={param}
           />
         </div>

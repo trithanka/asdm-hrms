@@ -3,9 +3,9 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import {
   Button,
-  Divider,
-  Grid,
+  FormControl,
   Input,
+  InputLabel,
   MenuItem,
   Pagination,
   Paper,
@@ -51,19 +51,34 @@ export default function EmployeeActivityTable(props: Props) {
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [filtering, setFiltering] = React.useState("");
-  // const [showFilter, setShowFilter] = React.useState(true);
-  const [departmentfiltering, setDepartmentFiltering] = React.useState("MIS");
-  // const [datefiltering, setDateFiltering] = React.useState("");
+  const [departmentfiltering, setDepartmentFiltering] = React.useState("");
 
-  // const todayDate = new Date().toISOString().split('T')[0];
+  const filteredData = React.useMemo(() => {
+    return data.filter((employee: any) => {
+      const matchesSearch =
+        !filtering ||
+        Object.values(employee).some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(filtering.toLowerCase())
+        );
+
+      const matchesDepartment =
+        !departmentfiltering ||
+        String(employee.departmentName ?? "")
+          .toLowerCase()
+          .includes(departmentfiltering.toLowerCase());
+
+      return matchesSearch && matchesDepartment;
+    });
+  }, [data, filtering, departmentfiltering]);
 
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     state: {
       sorting,
-      globalFilter: filtering ? filtering : departmentfiltering,
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -77,127 +92,98 @@ export default function EmployeeActivityTable(props: Props) {
   };
 
   return (
-    <Stack gap={ 2 }>
-      <div style={ { width: "50%", display: "flex", alignItems: "center" } }>
-        <Input
-          type="text"
-          placeholder="Search"
-          style={ { width: "100%", marginRight: "2rem" } }
-          onChange={ (e) => setFiltering(e.target.value) }
-          value={ filtering ?? "" }
-        />
-        <Button variant="contained" type="button">
-          Search
-        </Button>
-
-      </div>
+    <Stack gap={2}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        alignItems={{ xs: "stretch", md: "flex-end" }}
+        justifyContent="space-between"
+      >
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems={{ xs: "stretch", md: "flex-end" }}
+          sx={{ width: "100%" }}
+        >
+          <Stack sx={{ width: { xs: "100%", md: 360 } }}>
+            <Typography variant="caption" fontWeight={500} gutterBottom>
+              Search
+            </Typography>
+            <Input
+              type="text"
+              placeholder="Search"
+              onChange={(e) => setFiltering(e.target.value)}
+              value={filtering ?? ""}
+              fullWidth
+            />
+          </Stack>
+          {!!departments?.length && (
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel>Department</InputLabel>
+              <MuiSelect
+                value={departmentfiltering}
+                label="Department"
+                onChange={(e) => setDepartmentFiltering(e.target.value)}
+              >
+                <MenuItem value="">All Departments</MenuItem>
+                {departments.map((option: any, idx: number) => (
+                  <MenuItem key={idx} value={option.label}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </MuiSelect>
+            </FormControl>
+          )}
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setFiltering("");
+              setDepartmentFiltering("");
+            }}
+            sx={{ alignSelf: { xs: "stretch", md: "flex-end" } }}
+          >
+            Reset
+          </Button>
+        </Stack>
+      </Stack>
       { route === "leave" &&
         <Stack>
-          <Grid display="flex" justifyContent={ "end" }>
+          <Stack direction="row" justifyContent="end">
             <LoadingButton
               variant="contained"
               startIcon={ <FileDownloadIcon /> }
-              onClick={ () => useExportStaffList(data, route) }
+              onClick={ () => useExportStaffList(filteredData, route) }
             >
               Export Staff on leave list
             </LoadingButton>
-          </Grid>
+          </Stack>
         </Stack> }
       { route === "absent" &&
         <Stack>
-          <Grid display="flex" justifyContent="end">
+          <Stack direction="row" justifyContent="end">
             <LoadingButton
               variant="contained"
               startIcon={ <FileDownloadIcon /> }
-              onClick={ () => useExportStaffList(data, route) }
+              onClick={ () => useExportStaffList(filteredData, route) }
             >
               Export staff absent list
             </LoadingButton>
-          </Grid>
+          </Stack>
         </Stack>
       }
       { route === "present" &&
         <Stack>
-          <Grid display="flex" justifyContent="end">
+          <Stack direction="row" justifyContent="end">
             <LoadingButton
               variant="contained"
               startIcon={ <FileDownloadIcon /> }
-              onClick={ () => useExportStaffList(data, route) }
+              onClick={ () => useExportStaffList(filteredData, route) }
             >
               Export staff present list
             </LoadingButton>
-          </Grid>
+          </Stack>
         </Stack>
       }
-
-        <>
-          {/* <Grid item width={ 20 }>
-            <Button onClick={ () => setShowFilter(false) } sx={ { cursor: "pointer" } }>
-              <FilterAltIcon color="primary" />
-            </Button>
-          </Grid> */}
-          <Stack direction="row" mt={"-50px"}>
-            { departments?.length &&
-              <div style={ { display: "flex", alignItems: "center", gap: 5 } }>
-                <div>
-                  <Typography variant="caption" fontWeight={ 500 } gutterBottom>
-                    Department
-                  </Typography>
-                  <Grid item xs={ 4 } sm={ 4 }>
-                    <MuiSelect
-                      size="small"
-                      value={ departmentfiltering ?? "" }
-                      onChange={ (e) => setDepartmentFiltering(e.target.value) }
-                      displayEmpty
-                    >
-                      <MenuItem value="" disabled>
-                        Select Department
-                      </MenuItem>
-                      { departments?.map((option: any, idx: number) => (
-                        <MenuItem key={ idx } value={ option.label }>
-                          { option.label }
-                        </MenuItem>
-                      )) }
-                    </MuiSelect>
-                  </Grid>
-                </div>
-                {/* <div style={ { paddingLeft: 20, paddingRight: 20 } }>
-                  <Typography variant="caption" fontWeight={ 500 } gutterBottom>
-                    { route == "active" ?
-                      "Date of joining"
-                      :
-                      "Release Date"
-                    }
-                  </Typography>
-                  <Paper variant="outlined" sx={ {
-                    p: 0.5,
-                  } } >
-                    <Input
-                      type="date"
-                      value={ datefiltering }
-                      onChange={ (e) => setDateFiltering(e.target.value) }
-                      inputProps={ {
-                        max: todayDate,
-                      } }
-                    />
-                  </Paper>
-                </div> */}
-                <div style={ { width: 10, height: 10 } }>
-                  <Button variant="outlined" onClick={ () => { setDepartmentFiltering("") } }>
-                    Reset
-                  </Button>
-                </div>
-              </div>
-            }
-          </Stack>
-        </>
-        {/* <Grid item width={ 20 }>
-          <Button onClick={ () => setShowFilter(true) } sx={ { cursor: "pointer" } }>
-            <FilterAltOffIcon color="primary" />
-          </Button>
-        </Grid> */}
-
-
       <TableContainer component={ Paper } variant="outlined">
         <Table>
           <TableHead>
@@ -292,7 +278,6 @@ export default function EmployeeActivityTable(props: Props) {
               { table.getPageCount() }
             </Typography>
           </Stack>
-          <Divider orientation="vertical" />
           <Typography display="flex" gap={ 1 } alignItems="center">
             Go to page:
             <TextField
