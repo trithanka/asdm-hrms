@@ -449,6 +449,7 @@ export default function LeaveBalancePage() {
                     <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
                       <TextField
                         type="text"
+                                        className="disabled:bg-gray"
                         size="small"
                         fullWidth
                         value={row.casualLeave}
@@ -464,6 +465,7 @@ export default function LeaveBalancePage() {
                       <TextField
                         type="text"
                         size="small"
+                                        className="disabled:bg-gray"
                         fullWidth
                         value={row.medicalLeave}
                         onChange={handleFieldChange(row.id, "medicalLeave")}
@@ -479,6 +481,8 @@ export default function LeaveBalancePage() {
                         type="text"
                         size="small"
                         fullWidth
+                      
+                        className="disabled:bg-gray"
                         value={row.restrictedLeave}
                         onChange={handleFieldChange(row.id, "restrictedLeave")}
                         inputProps={{
@@ -497,6 +501,7 @@ export default function LeaveBalancePage() {
                         onChange={handleFieldChange(row.id, "maternityLeave")}
                         placeholder="Enter value"
                         disabled={disableMaternity}
+                         className="disabled:bg-gray"
                         inputProps={{
                           inputMode: "numeric",
                           pattern: "[0-9]*",
@@ -510,6 +515,7 @@ export default function LeaveBalancePage() {
                         size="small"
                         fullWidth
                         value={row.paternityLeave}
+                          className="disabled:bg-gray"
                         onChange={handleFieldChange(row.id, "paternityLeave")}
                         placeholder="Enter value"
                         disabled={disablePaternity}
@@ -523,6 +529,7 @@ export default function LeaveBalancePage() {
                     <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
                       <TextField
                         select
+                        className="disabled:bg-gray"
                         size="small"
                         fullWidth
                         value={row.yearEnd}

@@ -86,6 +86,15 @@ export default function BreakingMasterPage() {
     });
     const [isFetchingLastFy, setIsFetchingLastFy] = useState(false);
 
+    const toNumber = (value: string | number) => {
+        if (value === '' || value === null || value === undefined) {
+            return 0;
+        }
+
+        const parsedValue = Number(value);
+        return Number.isNaN(parsedValue) ? 0 : parsedValue;
+    };
+
     const handleFetchLastFyData = async () => {
         if (!formData.fklDesignationCategoryId || !formData.fklSalaryFinancialYearId) {
             toast.error("Please select Designation Category and Financial Year first");
@@ -233,17 +242,45 @@ export default function BreakingMasterPage() {
 
     const handleSubmit = async () => {
         try {
-            // Clean payload: Remove empty strings and convert others to numbers where needed
-            const payload: any = { ...formData, pklSalaryBreakingAsdmNescId: editingId };
-            Object.keys(payload).forEach(key => {
-                if (payload[key] === '') {
-                    delete payload[key];
-                } else if (key.startsWith('d') || key.startsWith('i') || key === 'fklSalaryFinancialYearId') {
-                    payload[key] = Number(payload[key]);
-                }
-            });
+            if (!formData.fklDesignationCategoryId || !formData.fklSalaryFinancialYearId) {
+                toast.error("Designation Category and Financial Year are required");
+                return;
+            }
 
-            await saveMutation.mutateAsync(payload);
+            if (editingId) {
+                const payload: any = { ...formData, pklSalaryBreakingAsdmNescId: editingId };
+                Object.keys(payload).forEach(key => {
+                    if (payload[key] === '') {
+                        delete payload[key];
+                    } else if (key.startsWith('d') || key.startsWith('i') || key === 'fklSalaryFinancialYearId') {
+                        payload[key] = Number(payload[key]);
+                    }
+                });
+
+                await saveMutation.mutateAsync(payload);
+            } else {
+                const payload = [
+                    {
+                        designationCategoryId: Number(formData.fklDesignationCategoryId),
+                        basicPay: toNumber(formData.dBasicPay),
+                        workingDays: toNumber(formData.iWorkingDays),
+                        incrementPercentage: toNumber(formData.dIncrementParcentage),
+                        houseRentPercentage: toNumber(formData.dHouseRentParcentage),
+                        mobileInternet: toNumber(formData.dMobileInternet),
+                        newspaperMagazine: toNumber(formData.dNewsPaperMagazine),
+                        conveyanceAllowance: toNumber(formData.dConveyanceAllowances),
+                        educationAllowance: toNumber(formData.dEducationAllowance),
+                        arrear: toNumber(formData.dArrear),
+                        professionalTax: toNumber(formData.dDeductionOfPtax),
+                        incomeTax: toNumber(formData.dDeductionOfIncomeTax),
+                        otherDeduction: toNumber(formData.dOtherDeduction),
+                        fklSalaryFinancialYearId: Number(formData.fklSalaryFinancialYearId),
+                    }
+                ];
+
+                await saveMutation.mutateAsync(payload);
+            }
+
             handleClose();
         } catch (e) { }
     };
