@@ -151,6 +151,23 @@ export interface GenerateSalaryResponse {
     statusCode: number;
 }
 
+export interface AddSalaryBreakingPayloadItem {
+    designationCategoryId: number;
+    basicPay: number;
+    workingDays: number;
+    incrementPercentage: number;
+    houseRentPercentage: number;
+    mobileInternet: number;
+    newspaperMagazine: number;
+    conveyanceAllowance: number;
+    educationAllowance: number;
+    arrear: number;
+    professionalTax: number;
+    incomeTax: number;
+    otherDeduction: number;
+    fklSalaryFinancialYearId: number;
+}
+
 export const salaryFileApi = {
     // Get all salary files
     getSalaryFiles: async (): Promise<SalaryFileResponse> => {
@@ -230,6 +247,12 @@ export const salaryFileApi = {
     // Save/Update salary breaking master
     saveSalaryBreakingMaster: async (payload: any): Promise<any> => {
         const response = await API.post("/SalaryGenerate/breaking-master-save", payload);
+        return response.data;
+    },
+
+    // Add salary breaking master
+    addSalaryBreakingMaster: async (payload: AddSalaryBreakingPayloadItem[]): Promise<any> => {
+        const response = await API.post("/HrModule/add-salary-breaking", payload);
         return response.data;
     },
 

@@ -1,4 +1,5 @@
 import * as React from "react";
+import LockReset from "@mui/icons-material/LockReset";
 import Logout from "@mui/icons-material/Logout";
 import PersonAdd from "@mui/icons-material/PersonAdd";
 import Settings from "@mui/icons-material/Settings";
@@ -11,7 +12,11 @@ import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import { useSignOut } from "react-auth-kit";
 
-export default function Profile() {
+type ProfileProps = {
+  onOpenResetPassword: () => void;
+};
+
+export default function Profile({ onOpenResetPassword }: ProfileProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const signOut = useSignOut();
@@ -104,6 +109,17 @@ export default function Profile() {
             <Settings fontSize="small" />
           </ListItemIcon>
           Settings
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            onOpenResetPassword();
+          }}
+        >
+          <ListItemIcon>
+            <LockReset fontSize="small" />
+          </ListItemIcon>
+          Forgot Password
         </MenuItem>
         <MenuItem onClick={signOutHandler}>
           <ListItemIcon>

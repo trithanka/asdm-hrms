@@ -1,7 +1,8 @@
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import MenuIcon from "@mui/icons-material/Menu";
-import { Stack } from "@mui/material";
+import { LoadingButton } from "@mui/lab";
+import { Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
@@ -18,6 +19,9 @@ import NavList from "../features/dashboard/components/navigation/nav-list";
 import Notification from "../features/notification/notification";
 import API from "../api";
 import { useAuthHeader } from "react-auth-kit";
+import { useMutation } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { updatePassword } from "../api/authenticate";
 
 const drawerWidth = 240;
 
@@ -93,6 +97,11 @@ const Drawer = styled(MuiDrawer, {
 export default function RootLayout() {
   const theme = useTheme();
   const [open, setOpen] = React.useState(true);
+  const [passwordModalOpen, setPasswordModalOpen] = React.useState(false);
+  const [passwordModalType, setPasswordModalType] = React.useState<"forgot" | "reset">("forgot");
+  const [oldPassword, setOldPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
 
   const handleDrawerClose = () => {
     setOpen(true);
@@ -109,6 +118,76 @@ export default function RootLayout() {
       return config;
     });
   }, []);
+
+  React.useEffect(() => {
+    const shouldForcePasswordChange = localStorage.getItem("forcePasswordChange") === "1";
+    setPasswordModalType("forgot");
+    setPasswordModalOpen(shouldForcePasswordChange);
+  }, []);
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: updatePassword,
+    onSuccess(data) {
+      if (data?.status === false || data?.status === "failed" || data?.status === "error") {
+        toast.error(data?.message ?? "Failed to update password");
+        return;
+      }
+
+      localStorage.removeItem("forcePasswordChange");
+      setPasswordModalOpen(false);
+      setPasswordModalType("forgot");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success(data?.message ?? "Password updated successfully");
+    },
+    onError(error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update password");
+    },
+  });
+
+  const handlePasswordSubmit = () => {
+    if (passwordModalType === "reset" && !oldPassword) {
+      toast.error("Old password is required");
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      toast.error("All required password fields must be filled");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    updatePasswordMutation.mutate({
+      type: passwordModalType,
+      oldPassword: passwordModalType === "reset" ? oldPassword : undefined,
+      newPassword,
+      confirmPassword,
+    });
+  };
+
+  const handleOpenResetPassword = () => {
+    setPasswordModalType("reset");
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordModalOpen(true);
+  };
+
+  const handleClosePasswordModal = () => {
+    if (passwordModalType === "forgot") {
+      return;
+    }
+
+    setPasswordModalOpen(false);
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
 
   return (
     <>
@@ -143,7 +222,7 @@ export default function RootLayout() {
               <Stack direction="row" alignItems="center" gap={2}>
                 <Notification />
 
-                <Profile />
+                <Profile onOpenResetPassword={handleOpenResetPassword} />
               </Stack>
             </Stack>
           </Toolbar>
@@ -177,7 +256,60 @@ export default function RootLayout() {
             <Outlet />
           </Box>
         </Box>
-      </Box>{" "}
+      </Box>
+      <Dialog
+        open={passwordModalOpen}
+        disableEscapeKeyDown={passwordModalType === "forgot"}
+        onClose={handleClosePasswordModal}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {passwordModalType === "forgot" ? "Change Password" : "Reset Password"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {passwordModalType === "reset" && (
+              <TextField
+                label="Old Password"
+                type="password"
+                value={oldPassword}
+                onChange={(event) => setOldPassword(event.target.value)}
+                fullWidth
+              />
+            )}
+            <TextField
+              label="New Password"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          {passwordModalType === "reset" && (
+            <LoadingButton onClick={handleClosePasswordModal} color="inherit">
+              Cancel
+            </LoadingButton>
+          )}
+          <LoadingButton
+            variant="contained"
+            onClick={handlePasswordSubmit}
+            loading={updatePasswordMutation.isPending}
+            fullWidth={passwordModalType === "forgot"}
+          >
+            Update Password
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

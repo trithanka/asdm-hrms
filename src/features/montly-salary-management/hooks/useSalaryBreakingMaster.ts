@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { salaryFileApi } from "../../../api/salary/salary-file-api";
+import { AddSalaryBreakingPayloadItem, salaryFileApi } from "../../../api/salary/salary-file-api";
 import toast from "react-hot-toast";
 
 export const useSalaryBreakingMaster = (structType: string, fyId?: string) => {
@@ -14,7 +14,13 @@ export const useSaveSalaryBreakingMaster = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (payload: any) => salaryFileApi.saveSalaryBreakingMaster(payload),
+        mutationFn: (payload: any) => {
+            if (Array.isArray(payload)) {
+                return salaryFileApi.addSalaryBreakingMaster(payload as AddSalaryBreakingPayloadItem[]);
+            }
+
+            return salaryFileApi.saveSalaryBreakingMaster(payload);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["salary-breaking-master"] });
             toast.success("Record saved successfully");

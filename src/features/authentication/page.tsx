@@ -54,11 +54,19 @@ export default function SignInPage() {
           token: data.token,
           expiresIn: 1200,
           tokenType: "Bearer",
-          authState: decoded,
+          authState: {
+            ...decoded,
+            firstLogin: data.firstLogin,
+          },
         })
       ) {
         toast.success(data?.message ?? "Login Successfull");
         localStorage.setItem("name", data.name);
+        if (data.firstLogin === 0) {
+          localStorage.setItem("forcePasswordChange", "1");
+        } else {
+          localStorage.removeItem("forcePasswordChange");
+        }
 
         if (data.systemUser === true) {
           navigate("/");

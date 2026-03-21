@@ -33,17 +33,22 @@ export default function NavList({ open }: INavList) {
   const location = useLocation();
   const [recruitmentOpen, setRecruitmentOpen] = useState(false);
   const [payrollOpen, setPayrollOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   // Auto-expand and highlight parents if child is active
   const isRecruitmentActive = location.pathname.startsWith("/recruitment");
   const isPayrollActive =
     location.pathname.startsWith("/payroll") ||
     location.pathname.startsWith("/salary-transfer");
+  const isLeaveActive =
+    location.pathname.startsWith("/leaves") ||
+    location.pathname.startsWith("/leave-balance");
 
   useEffect(() => {
     if (isRecruitmentActive) setRecruitmentOpen(true);
     if (isPayrollActive) setPayrollOpen(true);
-  }, [isRecruitmentActive, isPayrollActive]);
+    if (isLeaveActive) setLeaveOpen(true);
+  }, [isRecruitmentActive, isPayrollActive, isLeaveActive]);
 
   const handleRecruitmentClick = () => {
     setRecruitmentOpen(!recruitmentOpen);
@@ -51,6 +56,10 @@ export default function NavList({ open }: INavList) {
 
   const handlePayrollClick = () => {
     setPayrollOpen(!payrollOpen);
+  };
+
+  const handleLeaveClick = () => {
+    setLeaveOpen(!leaveOpen);
   };
 
   const getDropdownStyles = (isActive: boolean) => ({
@@ -160,12 +169,64 @@ export default function NavList({ open }: INavList) {
         icon={<PlaylistAddCheckCircleOutlinedIcon />}
       />
 
-      <NavItem
-        link="/leaves"
-        open={open}
-        label="Leave"
-        icon={<TodayRoundedIcon />}
-      />
+      <ListItemButton
+        onClick={handleLeaveClick}
+        sx={getDropdownStyles(isLeaveActive)}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: 0,
+            mr: open ? 1.5 : 0,
+            justifyContent: "center",
+            color: "inherit",
+            "& .MuiSvgIcon-root": {
+              fontSize: "1.25rem",
+            },
+          }}
+        >
+          <TodayRoundedIcon />
+        </ListItemIcon>
+        <ListItemText
+          primary="Leave"
+          sx={{
+            display: open ? "block" : "none",
+            opacity: open ? 1 : 0,
+            textDecoration: "none",
+          }}
+        />
+        {open && (
+          <ListItemIcon
+            sx={{
+              minWidth: 0,
+              color: "inherit",
+              ml: "auto",
+            }}
+          >
+            {leaveOpen ? (
+              <ExpandLess sx={{ fontSize: "1rem" }} />
+            ) : (
+              <ExpandMore sx={{ fontSize: "1rem" }} />
+            )}
+          </ListItemIcon>
+        )}
+      </ListItemButton>
+
+      <Collapse in={leaveOpen} timeout="auto" unmountOnExit>
+        <List component="div" disablePadding sx={{ pl: open ? 2 : 0 }}>
+          <NavItem
+            link="/leaves"
+            open={open}
+            label="Request"
+            icon={<TodayRoundedIcon />}
+          />
+          <NavItem
+            link="/leave-balance"
+            open={open}
+            label="Balance"
+            icon={<AccountBalanceWalletIcon />}
+          />
+        </List>
+      </Collapse>
 
       {/* 🔽 Recruitment Dropdown */}
       <ListItemButton
