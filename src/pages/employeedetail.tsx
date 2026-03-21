@@ -137,7 +137,7 @@ export default function EmployeeDetail() {
               <Typography>
                 { data?.getEmployeData[0]?.firstName } { " " }
                 { data?.getEmployeData[0]?.middleName } { " " }
-                { data?.getEmployeData[0]?.vslastName } { " " }
+                { data?.getEmployeData[0]?.lastName } { " " }
               </Typography>
             </Grid>
             {/* { data?.getEmployeData[0]?.middleName &&
@@ -166,7 +166,7 @@ export default function EmployeeDetail() {
                 Last Name
               </Typography>
               <Typography>
-                { data?.getEmployeData[0]?.vslastName ?? "N/A" }
+                { data?.getEmployeData[0]?.lastName ?? "N/A" }
               </Typography>
             </Grid> */}
 
