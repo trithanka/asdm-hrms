@@ -25,6 +25,7 @@ import ApplicantDetail from "./features/recruitment/pages/applicant-detail";
 import { SalaryTransfer } from "./pages/salaryTransfer";
 import FinancialYearPage from "./pages/financial-year";
 import BreakingMasterPage from "./pages/breaking-master";
+import LeaveBalancePage from "./pages/leave-balance";
 
 
 const router = createBrowserRouter([
@@ -72,6 +73,10 @@ const router = createBrowserRouter([
       {
         path: "leaves",
         element: <Leaves />,
+      },
+      {
+        path: "leave-balance",
+        element: <LeaveBalancePage />,
       },
       {
         path: "recruitment/jobs",
