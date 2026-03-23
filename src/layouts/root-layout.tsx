@@ -204,7 +204,7 @@ export default function RootLayout() {
                 </IconButton>
                 <Typography noWrap fontWeight={500}>
                   ASDM HR Dashboard
-                </Typography>{" "}
+                </Typography>
               </Stack>
 
               <Stack direction="row" alignItems="center" gap={2}>

@@ -10,6 +10,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import { useSignOut } from "react-auth-kit";
 
 type ProfileProps = {
@@ -18,8 +19,13 @@ type ProfileProps = {
 
 export default function Profile({ onOpenResetPassword }: ProfileProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [userName, setUserName] = React.useState("");
   const open = Boolean(anchorEl);
   const signOut = useSignOut();
+
+  React.useEffect(() => {
+    setUserName(localStorage.getItem("name") ?? "");
+  }, []);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -36,6 +42,13 @@ export default function Profile({ onOpenResetPassword }: ProfileProps) {
   return (
     <React.Fragment>
       <Box sx={{ display: "flex", alignItems: "center", textAlign: "center" }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mr: 1, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        >
+          {userName}
+        </Typography>
         <Tooltip title="Account settings">
           <IconButton
             onClick={handleClick}
@@ -51,7 +64,7 @@ export default function Profile({ onOpenResetPassword }: ProfileProps) {
                 bgcolor: (theme) => theme.palette.warning.main,
               }}
             >
-              A
+              {(userName.trim().charAt(0) || "A").toUpperCase()}
             </Avatar>
           </IconButton>
         </Tooltip>

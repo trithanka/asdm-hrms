@@ -29,6 +29,7 @@ export const BankTransferTable = ({ data }: BankTransferTableProps) => {
             <Table sx={{ minWidth: 650 }} stickyHeader>
                 <TableHead>
                     <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                        <TableCell sx={{ fontWeight: 600 }}>Sl No</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Employee ID</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Employee Name</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Account Number</TableCell>
@@ -40,11 +41,12 @@ export const BankTransferTable = ({ data }: BankTransferTableProps) => {
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {data.map((row) => (
+                    {data.map((row, index) => (
                         <TableRow
                             key={row.id}
                             sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
                         >
+                            <TableCell>{index + 1}</TableCell>
                             <TableCell component="th" scope="row">
                                 {row.employeeId}
                             </TableCell>

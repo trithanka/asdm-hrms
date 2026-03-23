@@ -1,4 +1,5 @@
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import DownloadIcon from "@mui/icons-material/Download";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import {
   Alert,
@@ -25,6 +26,7 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 import API from "../api";
 
 type LeaveBalanceRow = {
@@ -48,6 +50,13 @@ type EmployeeResponseItem = {
   vsPhoneNumber: string;
   designationName: string;
   desCategoryName: string;
+  casual?: number | null;
+  madical?: number | null;
+  Paternity?: number | null;
+  maternity?: number | null;
+  restricted?: number | null;
+  unpaid?: number | null;
+  vsYear?: string | null;
 };
 
 type EmployeeListResponse = {
@@ -62,28 +71,43 @@ type MasterYearItem = {
   vsYear: string;
 };
 
+type MasterDesignationItem = {
+  pklDesignationId: number;
+  vsDesignationName: string;
+  fklDesignationCategoryId: number | null;
+};
+
 type MasterDataResponse = {
   status: string;
   message: string;
   statusCode: number;
   data: {
     year: MasterYearItem[];
+    designation: MasterDesignationItem[];
   };
 };
 
-function mapEmployeeToLeaveRow(employee: EmployeeResponseItem): LeaveBalanceRow {
+const toInputValue = (value: number | null | undefined): string =>
+  value === null || value === undefined ? "" : String(value);
+
+function mapEmployeeToLeaveRow(
+  employee: EmployeeResponseItem,
+  yearList: MasterYearItem[]
+): LeaveBalanceRow {
+  const mappedYearId = yearList.find((year) => year.vsYear === employee.vsYear)?.pklYearId;
+
   return {
     id: String(employee.id),
     name: employee.full_name,
     designation: employee.designationName,
     mobile: employee.vsPhoneNumber,
     gender: employee.vsGenderName,
-    casualLeave: "",
-    medicalLeave: "",
-    restrictedLeave: "",
-    maternityLeave: "",
-    paternityLeave: "",
-    yearEnd: "",
+    casualLeave: toInputValue(employee.casual),
+    medicalLeave: toInputValue(employee.madical),
+    restrictedLeave: toInputValue(employee.restricted),
+    maternityLeave: toInputValue(employee.maternity),
+    paternityLeave: toInputValue(employee.Paternity),
+    yearEnd: mappedYearId ? String(mappedYearId) : (employee.vsYear ?? ""),
   };
 }
 
@@ -106,6 +130,10 @@ const stickyCellStyles = {
 export default function LeaveBalancePage() {
   const [rows, setRows] = useState<LeaveBalanceRow[]>([]);
   const [yearOptions, setYearOptions] = useState<MasterYearItem[]>([]);
+  const [designationOptions, setDesignationOptions] = useState<MasterDesignationItem[]>([]);
+  const [searchName, setSearchName] = useState("");
+  const [debouncedSearchName, setDebouncedSearchName] = useState("");
+  const [designationId, setDesignationId] = useState("");
   const [globalYearEnd, setGlobalYearEnd] = useState("");
   const [savedRowIds, setSavedRowIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -113,6 +141,7 @@ export default function LeaveBalancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const allRowsSaved = rows.length > 0 && savedRowIds.length === rows.length;
 
   const isMale = (gender: string) => gender.trim().toLowerCase() === "male";
@@ -132,7 +161,7 @@ export default function LeaveBalancePage() {
   };
 
   const getYearLabel = (yearId: string) => {
-    return yearOptions.find((year) => String(year.pklYearId) === yearId)?.vsYear ?? "";
+    return yearOptions.find((year) => String(year.pklYearId) === yearId)?.vsYear ?? yearId;
   };
 
   const mapRowToPayload = (row: LeaveBalanceRow): LeavePayloadItem => ({
@@ -158,6 +187,14 @@ export default function LeaveBalancePage() {
   };
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchName(searchName.trim());
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [searchName]);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function fetchPageData() {
@@ -165,15 +202,31 @@ export default function LeaveBalancePage() {
         setIsLoading(true);
         setError(null);
 
+        const employeePayload: { full_name?: string; designationId?: number } = {};
+        if (debouncedSearchName) {
+          employeePayload.full_name = debouncedSearchName;
+        }
+        if (designationId) {
+          employeePayload.designationId = Number(designationId);
+        }
+
         const [employeeResponse, masterDataResponse] = await Promise.all([
-          API.post<EmployeeListResponse>("HrModule/get"),
+          API.post<EmployeeListResponse>("HrModule/get", employeePayload),
           API.post<MasterDataResponse>("HrModule/master-data", {}),
         ]);
 
         if (!isMounted) return;
 
-        setRows(employeeResponse.data.data.map(mapEmployeeToLeaveRow));
-        setYearOptions(masterDataResponse.data.data.year ?? []);
+        const years = masterDataResponse.data.data.year ?? [];
+        setRows(
+          employeeResponse.data.data.map((employee) =>
+            mapEmployeeToLeaveRow(employee, years)
+          )
+        );
+        setSavedRowIds([]);
+        setSubmitted(false);
+        setYearOptions(years);
+        setDesignationOptions(masterDataResponse.data.data.designation ?? []);
       } catch (err: any) {
         if (!isMounted) return;
 
@@ -192,7 +245,7 @@ export default function LeaveBalancePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [debouncedSearchName, designationId]);
 
   const handleFieldChange =
     (id: string, field: keyof LeaveBalanceRow) =>
@@ -287,6 +340,57 @@ export default function LeaveBalancePage() {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    try {
+      setIsDownloading(true);
+      const response = await API.post<EmployeeListResponse>("HrModule/get", {});
+      const allRows = response.data.data.map((employee) =>
+        mapEmployeeToLeaveRow(employee, yearOptions)
+      );
+
+      const excelRows = allRows.map((row, index) => ({
+        "Sl No": index + 1,
+        "Employee ID": row.id,
+        "Full Name": row.name,
+        "Designation": row.designation,
+        "Gender": row.gender,
+        "Phone Number": row.mobile,
+        "Casual Leave": row.casualLeave || "",
+        "Medical Leave": row.medicalLeave || "",
+        "Restricted Leave": row.restrictedLeave || "",
+        "Maternity Leave": row.maternityLeave || "",
+        "Paternity Leave": row.paternityLeave || "",
+        "Year End": getYearLabel(row.yearEnd),
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelRows);
+      worksheet["!cols"] = [
+        { wch: 8 },
+        { wch: 12 },
+        { wch: 28 },
+        { wch: 26 },
+        { wch: 10 },
+        { wch: 16 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 12 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Leave Balance");
+      const today = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Leave_Balance_${today}.xlsx`);
+      toast.success("Leave balance Excel downloaded.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to download Excel.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <Stack spacing={3}>
       <Stack
@@ -305,6 +409,32 @@ export default function LeaveBalancePage() {
 
         <Stack direction="row" spacing={1.5}>
           <TextField
+            size="small"
+            label="Search Employee Name"
+            placeholder="Type full name"
+            value={searchName}
+            onChange={(event) => setSearchName(event.target.value)}
+            sx={{ minWidth: 240 }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Designation"
+            value={designationId}
+            onChange={(event) => setDesignationId(event.target.value)}
+            sx={{ minWidth: 260 }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {designationOptions.map((designation) => (
+              <MenuItem
+                key={designation.pklDesignationId}
+                value={String(designation.pklDesignationId)}
+              >
+                {designation.vsDesignationName}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
             select
             size="small"
             label="Year End"
@@ -321,6 +451,14 @@ export default function LeaveBalancePage() {
           </TextField>
           <Button variant="outlined" onClick={handleSaveAll} disabled={isSubmitting || isLoading}>
             {allRowsSaved ? "Cancel All" : "Save All"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadExcel}
+            disabled={isLoading || isDownloading}
+          >
+            {isDownloading ? "Downloading..." : "Download to Excel"}
           </Button>
           <Button variant="contained" onClick={openConfirmDialog} disabled={isSubmitting || isLoading}>
             Submit

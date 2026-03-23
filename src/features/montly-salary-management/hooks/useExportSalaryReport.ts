@@ -148,6 +148,7 @@ export function exportAsdmNescSalaryReport(
     // Create workbook and worksheet
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(rows);
+    const merges = worksheet["!merges"] ?? [];
 
     // Set column widths for better readability
     const columnWidths = [
@@ -176,6 +177,35 @@ export function exportAsdmNescSalaryReport(
         { wch: 12 },  // Status
     ];
     worksheet["!cols"] = columnWidths;
+
+    // Add signature + address footer block below the data table (always visible)
+    const totalRowsIncludingHeader = rows.length + 1;
+    const footerStartRow = totalRowsIncludingHeader + 3;
+    const footerStartCol = 0; // Column A
+    const footerEndCol = 22; // Up to last export column
+
+    const footerLines = [
+        "Signature: __________________________",
+        "",
+        "Mission Director",
+        "Assam Skill Development Mission",
+        "Katabari (Assam), GHY-35",
+    ];
+
+    footerLines.forEach((line, index) => {
+        const currentRow = footerStartRow + index;
+        XLSX.utils.sheet_add_aoa(
+            worksheet,
+            [[line]],
+            { origin: { r: currentRow - 1, c: footerStartCol } }
+        );
+        merges.push({
+            s: { r: currentRow - 1, c: footerStartCol },
+            e: { r: currentRow - 1, c: footerEndCol },
+        });
+    });
+
+    worksheet["!merges"] = merges;
 
     // Add the worksheet to workbook with sheet name
     XLSX.utils.book_append_sheet(

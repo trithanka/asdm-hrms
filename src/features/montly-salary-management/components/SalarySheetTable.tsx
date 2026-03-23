@@ -251,6 +251,23 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                 minWidth: 60,
                             }}
                         >
+                            Sl No
+                        </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                position: "sticky",
+                                left: 60,
+                                zIndex: 11,
+                                bgcolor: "#f5f5f5",
+                                textAlign: "center",
+                                minWidth: 60,
+                            }}
+                        >
                             Status
                         </TableCell>
                         <TableCell
@@ -262,7 +279,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                 border: "1px solid #ddd",
                                 userSelect: "none",
                                 position: "sticky",
-                                left: 48,
+                                left: 120,
                                 zIndex: 11,
                                 bgcolor: "#f5f5f5",
                                 minWidth: 150,
@@ -439,7 +456,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {tableData.map((row) => {
+                    {tableData.map((row, index) => {
                         const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
                         return (
                             <TableRow key={rowId} hover>
@@ -448,6 +465,18 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                         border: "1px solid #ddd",
                                         position: "sticky",
                                         left: 0,
+                                        bgcolor: "white",
+                                        zIndex: 11,
+                                        textAlign: "center"
+                                    }}
+                                >
+                                    {index + 1}
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        position: "sticky",
+                                        left: 60,
                                         bgcolor: "white",
                                         zIndex: 11,
                                         textAlign: "center"
@@ -463,7 +492,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                     sx={{
                                         border: "1px solid #ddd",
                                         position: "sticky",
-                                        left: 60,
+                                        left: 120,
                                         zIndex: 11,
                                         bgcolor: "white",
                                         minWidth: 150,
