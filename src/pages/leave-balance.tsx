@@ -1,134 +1,27 @@
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import DownloadIcon from "@mui/icons-material/Download";
-import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  IconButton,
-  MenuItem,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { useEffect, useState } from "react";
+import { Alert, Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { ChangeEvent, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import API from "../api";
-
-type LeaveBalanceRow = {
-  id: string;
-  name: string;
-  designation: string;
-  mobile: string;
-  gender: string;
-  casualLeave: string;
-  medicalLeave: string;
-  restrictedLeave: string;
-  maternityLeave: string;
-  paternityLeave: string;
-  yearEnd: string;
-};
-
-type EmployeeResponseItem = {
-  id: number;
-  full_name: string;
-  vsGenderName: string;
-  vsPhoneNumber: string;
-  designationName: string;
-  desCategoryName: string;
-  casual?: number | null;
-  madical?: number | null;
-  Paternity?: number | null;
-  maternity?: number | null;
-  restricted?: number | null;
-  unpaid?: number | null;
-  vsYear?: string | null;
-};
-
-type EmployeeListResponse = {
-  status: string;
-  message: string;
-  statusCode: number;
-  data: EmployeeResponseItem[];
-};
-
-type MasterYearItem = {
-  pklYearId: number;
-  vsYear: string;
-};
-
-type MasterDesignationItem = {
-  pklDesignationId: number;
-  vsDesignationName: string;
-  fklDesignationCategoryId: number | null;
-};
-
-type MasterDataResponse = {
-  status: string;
-  message: string;
-  statusCode: number;
-  data: {
-    year: MasterYearItem[];
-    designation: MasterDesignationItem[];
-  };
-};
-
-const toInputValue = (value: number | null | undefined): string =>
-  value === null || value === undefined ? "" : String(value);
-
-function mapEmployeeToLeaveRow(
-  employee: EmployeeResponseItem,
-  yearList: MasterYearItem[]
-): LeaveBalanceRow {
-  const mappedYearId = yearList.find((year) => year.vsYear === employee.vsYear)?.pklYearId;
-
-  return {
-    id: String(employee.id),
-    name: employee.full_name,
-    designation: employee.designationName,
-    mobile: employee.vsPhoneNumber,
-    gender: employee.vsGenderName,
-    casualLeave: toInputValue(employee.casual),
-    medicalLeave: toInputValue(employee.madical),
-    restrictedLeave: toInputValue(employee.restricted),
-    maternityLeave: toInputValue(employee.maternity),
-    paternityLeave: toInputValue(employee.Paternity),
-    yearEnd: mappedYearId ? String(mappedYearId) : (employee.vsYear ?? ""),
-  };
-}
-
-type LeavePayloadItem = {
-  employeeId: number;
-  casualLeave: number;
-  sickLeave: number;
-  parentialLeave: number;
-  maternityLeave: number;
-  restrictedLeave: number;
-  yearEnd: number;
-};
-
-const stickyCellStyles = {
-  border: "1px solid #ddd",
-  backgroundColor: "white",
-  zIndex: 11,
-};
+import { LeaveBalanceSubmitDialog } from "../features/leave-balance/components/leave-balance-submit-dialog";
+import { LeaveBalanceTable } from "../features/leave-balance/components/leave-balance-table";
+import { LeaveBalanceToolbar } from "../features/leave-balance/components/leave-balance-toolbar";
+import {
+  EmployeeListResponse,
+  EmployeeResponseItem,
+  LeaveBalanceRow,
+  LeaveFieldErrors,
+  LeaveFieldKey,
+  LeavePayloadItem,
+  MasterDataResponse,
+  MasterDesignationItem,
+  MasterYearItem,
+} from "../features/leave-balance/types";
+import { isFemale, isMale, mapEmployeeToLeaveRow, toNumber } from "../features/leave-balance/utils";
 
 export default function LeaveBalancePage() {
   const [rows, setRows] = useState<LeaveBalanceRow[]>([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
   const [yearOptions, setYearOptions] = useState<MasterYearItem[]>([]);
   const [designationOptions, setDesignationOptions] = useState<MasterDesignationItem[]>([]);
   const [searchName, setSearchName] = useState("");
@@ -142,10 +35,11 @@ export default function LeaveBalancePage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const allRowsSaved = rows.length > 0 && savedRowIds.length === rows.length;
+  const [fieldErrors, setFieldErrors] = useState<LeaveFieldErrors>({});
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  const isMale = (gender: string) => gender.trim().toLowerCase() === "male";
-  const isFemale = (gender: string) => gender.trim().toLowerCase() === "female";
+  const allRowsSaved = rows.length > 0 && savedRowIds.length === rows.length;
   const numericFields: Array<keyof LeaveBalanceRow> = [
     "casualLeave",
     "medicalLeave",
@@ -154,14 +48,49 @@ export default function LeaveBalancePage() {
     "paternityLeave",
   ];
 
-  const toNumber = (value: string) => {
-    if (!value.trim()) return 0;
-    const parsedValue = Number(value);
-    return Number.isNaN(parsedValue) ? 0 : parsedValue;
-  };
-
   const getYearLabel = (yearId: string) => {
     return yearOptions.find((year) => String(year.pklYearId) === yearId)?.vsYear ?? yearId;
+  };
+
+  const validateRow = (row: LeaveBalanceRow): Partial<Record<LeaveFieldKey, string>> => {
+    const errors: Partial<Record<LeaveFieldKey, string>> = {};
+
+    if (!row.casualLeave.trim()) errors.casualLeave = "Req field";
+    if (!row.medicalLeave.trim()) errors.medicalLeave = "Req field";
+    if (!row.restrictedLeave.trim()) errors.restrictedLeave = "Req field";
+    if (!row.yearEnd.trim()) errors.yearEnd = "Req field";
+
+    if (!isMale(row.gender) && !row.maternityLeave.trim()) {
+      errors.maternityLeave = "Req field";
+    }
+
+    if (!isFemale(row.gender) && !row.paternityLeave.trim()) {
+      errors.paternityLeave = "Req field";
+    }
+
+    return errors;
+  };
+
+  const validateRows = (targetRows: LeaveBalanceRow[]) => {
+    const nextErrors: LeaveFieldErrors = {};
+    targetRows.forEach((row) => {
+      const rowErrors = validateRow(row);
+      if (Object.keys(rowErrors).length > 0) {
+        nextErrors[row.id] = rowErrors;
+      }
+    });
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const resolveYearEndForPayload = (value: string) => {
+    const byId = yearOptions.find((year) => String(year.pklYearId) === value);
+    if (byId) return byId.pklYearId;
+
+    const byYear = yearOptions.find((year) => year.vsYear === value);
+    if (byYear) return byYear.pklYearId;
+
+    return toNumber(value);
   };
 
   const mapRowToPayload = (row: LeaveBalanceRow): LeavePayloadItem => ({
@@ -171,19 +100,15 @@ export default function LeaveBalancePage() {
     parentialLeave: isFemale(row.gender) ? 0 : toNumber(row.paternityLeave),
     maternityLeave: isMale(row.gender) ? 0 : toNumber(row.maternityLeave),
     restrictedLeave: toNumber(row.restrictedLeave),
-    yearEnd: toNumber(row.yearEnd),
+    yearEnd: resolveYearEndForPayload(row.yearEnd),
   });
 
   const saveLeaveRows = async (payload: LeavePayloadItem[]) => {
-    return API.post(
-      "HrModule/add-leaves-by-employee",
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return API.post("HrModule/add-leaves-by-employee", payload, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
   };
 
   useEffect(() => {
@@ -197,42 +122,72 @@ export default function LeaveBalancePage() {
   useEffect(() => {
     let isMounted = true;
 
+    async function fetchMasterData() {
+      try {
+        const masterDataResponse = await API.post<MasterDataResponse>("HrModule/master-data", {});
+        if (!isMounted) return;
+        setYearOptions(masterDataResponse.data.data.year ?? []);
+        setDesignationOptions(masterDataResponse.data.data.designation ?? []);
+      } catch {
+        // Keep page usable even if master call fails; employee list call handles error UI.
+      }
+    }
+
+    fetchMasterData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearchName, designationId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
     async function fetchPageData() {
       try {
         setIsLoading(true);
         setError(null);
 
-        const employeePayload: { full_name?: string; designationId?: number } = {};
+        const employeePayload: {
+          full_name?: string;
+          designationId?: number;
+          limit: number;
+          offset: number;
+        } = {
+          limit: rowsPerPage,
+          offset: page * rowsPerPage,
+        };
+
         if (debouncedSearchName) {
           employeePayload.full_name = debouncedSearchName;
         }
+
         if (designationId) {
           employeePayload.designationId = Number(designationId);
         }
 
-        const [employeeResponse, masterDataResponse] = await Promise.all([
-          API.post<EmployeeListResponse>("HrModule/get", employeePayload),
-          API.post<MasterDataResponse>("HrModule/master-data", {}),
-        ]);
+        const employeeResponse = await API.post<EmployeeListResponse>("HrModule/get", employeePayload, {
+          signal: controller.signal,
+        });
 
         if (!isMounted) return;
 
-        const years = masterDataResponse.data.data.year ?? [];
-        setRows(
-          employeeResponse.data.data.map((employee) =>
-            mapEmployeeToLeaveRow(employee, years)
-          )
-        );
+        const responseRows = employeeResponse.data.data ?? [];
+        setRows(responseRows.map((employee) => mapEmployeeToLeaveRow(employee, yearOptions)));
+        setTotalEmployees(employeeResponse.data.total ?? responseRows.length);
         setSavedRowIds([]);
         setSubmitted(false);
-        setYearOptions(years);
-        setDesignationOptions(masterDataResponse.data.data.designation ?? []);
+        setFieldErrors({});
       } catch (err: any) {
         if (!isMounted) return;
+        if (err?.name === "CanceledError" || err?.code === "ERR_CANCELED") return;
 
-        setError(
-          err?.response?.data?.message || "Failed to fetch employee list."
-        );
+        setError(err?.response?.data?.message || "Failed to fetch employee list.");
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -244,21 +199,45 @@ export default function LeaveBalancePage() {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
-  }, [debouncedSearchName, designationId]);
+  }, [debouncedSearchName, designationId, page, rowsPerPage, yearOptions]);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const handleFieldChange =
     (id: string, field: keyof LeaveBalanceRow) =>
-    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { value } = event.target;
-      const nextValue =
-        numericFields.includes(field) ? value.replace(/\D/g, "") : value;
+      const nextValue = numericFields.includes(field) ? value.replace(/\D/g, "") : value;
 
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === id ? { ...row, [field]: nextValue } : row
-        )
-      );
+      setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [field]: nextValue } : row)));
+
+      setFieldErrors((prev) => {
+        const current = prev[id];
+        if (!current || !current[field as LeaveFieldKey]) {
+          return prev;
+        }
+
+        const nextRowErrors = { ...current };
+        delete nextRowErrors[field as LeaveFieldKey];
+
+        const next = { ...prev };
+        if (Object.keys(nextRowErrors).length === 0) {
+          delete next[id];
+        } else {
+          next[id] = nextRowErrors;
+        }
+
+        return next;
+      });
 
       setSavedRowIds((prev) => prev.filter((rowId) => rowId !== id));
       setSubmitted(false);
@@ -268,6 +247,15 @@ export default function LeaveBalancePage() {
     if (savedRowIds.includes(id)) {
       setSavedRowIds((prev) => prev.filter((rowId) => rowId !== id));
       setSubmitted(false);
+      return;
+    }
+
+    const row = rows.find((item) => item.id === id);
+    if (!row) return;
+
+    const isValid = validateRows([row]);
+    if (!isValid) {
+      toast.error("Please fill required fields.");
       return;
     }
 
@@ -282,22 +270,34 @@ export default function LeaveBalancePage() {
       return;
     }
 
+    const isValid = validateRows(rows);
+    if (!isValid) {
+      toast.error("Please fill required fields.");
+      return;
+    }
+
     setSavedRowIds(rows.map((row) => row.id));
     setSubmitted(false);
   };
 
-  const handleGlobalYearEndChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleGlobalYearEndChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const selectedYearEnd = event.target.value;
 
     setGlobalYearEnd(selectedYearEnd);
-    setRows((prev) =>
-      prev.map((row) => ({
-        ...row,
-        yearEnd: selectedYearEnd,
-      }))
-    );
+    setRows((prev) => prev.map((row) => ({ ...row, yearEnd: selectedYearEnd })));
+
+    setFieldErrors((prev) => {
+      const next: LeaveFieldErrors = {};
+      Object.entries(prev).forEach(([rowId, rowErrors]) => {
+        const updated = { ...rowErrors };
+        delete updated.yearEnd;
+        if (Object.keys(updated).length > 0) {
+          next[rowId] = updated;
+        }
+      });
+      return next;
+    });
+
     setSavedRowIds([]);
     setSubmitted(false);
   };
@@ -312,6 +312,7 @@ export default function LeaveBalancePage() {
       toast.error("Please save at least one employee before submitting.");
       return;
     }
+
     setConfirmOpen(true);
   };
 
@@ -325,6 +326,12 @@ export default function LeaveBalancePage() {
 
       if (selectedRows.length === 0) {
         toast.error("No saved employees selected for submission.");
+        return;
+      }
+
+      const isValid = validateRows(selectedRows);
+      if (!isValid) {
+        toast.error("Please fill required fields.");
         return;
       }
 
@@ -343,24 +350,36 @@ export default function LeaveBalancePage() {
   const handleDownloadExcel = async () => {
     try {
       setIsDownloading(true);
-      const response = await API.post<EmployeeListResponse>("HrModule/get", {});
-      const allRows = response.data.data.map((employee) =>
-        mapEmployeeToLeaveRow(employee, yearOptions)
-      );
+      const batchSize = 100;
+      let offset = 0;
+      let total = 0;
+      const allEmployees: EmployeeResponseItem[] = [];
 
+      do {
+        const response = await API.post<EmployeeListResponse>("HrModule/get", {
+          limit: batchSize,
+          offset,
+        });
+        const employees = response.data.data ?? [];
+        total = response.data.total ?? employees.length;
+        allEmployees.push(...employees);
+        offset += batchSize;
+      } while (allEmployees.length < total);
+
+      const allRows = allEmployees.map((employee) => mapEmployeeToLeaveRow(employee, yearOptions));
       const excelRows = allRows.map((row, index) => ({
         "Sl No": index + 1,
         "Employee ID": row.id,
         "Full Name": row.name,
-        "Designation": row.designation,
-        "Gender": row.gender,
+        Designation: row.designation,
+        Gender: row.gender,
         "Phone Number": row.mobile,
         "Casual Leave": row.casualLeave || "",
         "Medical Leave": row.medicalLeave || "",
         "Restricted Leave": row.restrictedLeave || "",
         "Maternity Leave": row.maternityLeave || "",
         "Paternity Leave": row.paternityLeave || "",
-        "Year End": getYearLabel(row.yearEnd),
+        Year: getYearLabel(row.yearEnd),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelRows);
@@ -393,78 +412,23 @@ export default function LeaveBalancePage() {
 
   return (
     <Stack spacing={3}>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        flexWrap="wrap"
-        gap={2}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            Leave Balance
-          </Typography>
-          
-        </Box>
-
-        <Stack direction="row" spacing={1.5}>
-          <TextField
-            size="small"
-            label="Search Employee Name"
-            placeholder="Type full name"
-            value={searchName}
-            onChange={(event) => setSearchName(event.target.value)}
-            sx={{ minWidth: 240 }}
-          />
-          <TextField
-            select
-            size="small"
-            label="Designation"
-            value={designationId}
-            onChange={(event) => setDesignationId(event.target.value)}
-            sx={{ minWidth: 260 }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {designationOptions.map((designation) => (
-              <MenuItem
-                key={designation.pklDesignationId}
-                value={String(designation.pklDesignationId)}
-              >
-                {designation.vsDesignationName}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label="Year End"
-            value={globalYearEnd}
-            onChange={handleGlobalYearEndChange}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">Select</MenuItem>
-            {yearOptions.map((year) => (
-              <MenuItem key={year.pklYearId} value={String(year.pklYearId)}>
-                {year.vsYear}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Button variant="outlined" onClick={handleSaveAll} disabled={isSubmitting || isLoading}>
-            {allRowsSaved ? "Cancel All" : "Save All"}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadExcel}
-            disabled={isLoading || isDownloading}
-          >
-            {isDownloading ? "Downloading..." : "Download to Excel"}
-          </Button>
-          <Button variant="contained" onClick={openConfirmDialog} disabled={isSubmitting || isLoading}>
-            Submit
-          </Button>
-        </Stack>
-      </Stack>
+      <LeaveBalanceToolbar
+        searchName={searchName}
+        designationId={designationId}
+        globalYearEnd={globalYearEnd}
+        designationOptions={designationOptions}
+        yearOptions={yearOptions}
+        allRowsSaved={allRowsSaved}
+        isSubmitting={isSubmitting}
+        isLoading={isLoading}
+        isDownloading={isDownloading}
+        onSearchChange={setSearchName}
+        onDesignationChange={setDesignationId}
+        onGlobalYearEndChange={handleGlobalYearEndChange}
+        onSaveAll={handleSaveAll}
+        onDownloadExcel={handleDownloadExcel}
+        onSubmit={openConfirmDialog}
+      />
 
       {submitted && (
         <Typography color="success.main" fontWeight={600}>
@@ -479,280 +443,30 @@ export default function LeaveBalancePage() {
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small" stickyHeader sx={{ minWidth: 1120 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    position: "sticky",
-                    left: 0,
-                    zIndex: 12,
-                    backgroundColor: "#f5f5f5",
-                    minWidth: 80,
-                  }}
-                >
-                  ID
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    position: "sticky",
-                    left: 80,
-                    zIndex: 12,
-                    backgroundColor: "#f5f5f5",
-                    minWidth: 280,
-                  }}
-                >
-                  Employee Details
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#e3f2fd",
-                    minWidth: 120,
-                    textAlign: "center",
-                  }}
-                >
-                  Casual Leave
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#e8f5e9",
-                    minWidth: 120,
-                    textAlign: "center",
-                  }}
-                >
-                  Medical Leave
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#fff8e1",
-                    minWidth: 130,
-                    textAlign: "center",
-                  }}
-                >
-                  Restricted Leave
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#fce4ec",
-                    minWidth: 130,
-                    textAlign: "center",
-                  }}
-                >
-                  Maternity Leave
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#ede7f6",
-                    minWidth: 130,
-                    textAlign: "center",
-                  }}
-                >
-                  Paternity Leave
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#e0f2f1",
-                    minWidth: 130,
-                    textAlign: "center",
-                  }}
-                >
-                  Year End
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    border: "1px solid #ddd",
-                    backgroundColor: "#f5f5f5",
-                    minWidth: 90,
-                    textAlign: "center",
-                  }}
-                >
-                  Save
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => {
-                const isSaved = savedRowIds.includes(row.id);
-                const disableMaternity = isMale(row.gender);
-                const disablePaternity = isFemale(row.gender);
-
-                return (
-                  <TableRow key={row.id} hover>
-                    <TableCell
-                      sx={{
-                        ...stickyCellStyles,
-                        position: "sticky",
-                        left: 0,
-                      }}
-                    >
-                      {row.id}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        ...stickyCellStyles,
-                        position: "sticky",
-                        left: 80,
-                        minWidth: 280,
-                      }}
-                    >
-                      <Stack spacing={0.25}>
-                        <Typography variant="body2" fontWeight={600}>
-                          {row.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {row.designation}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {row.gender} | {row.mobile}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        type="text"
-                                        className="disabled:bg-gray"
-                        size="small"
-                        fullWidth
-                        value={row.casualLeave}
-                        onChange={handleFieldChange(row.id, "casualLeave")}
-                        inputProps={{
-                          inputMode: "numeric",
-                          pattern: "[0-9]*",
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        type="text"
-                        size="small"
-                                        className="disabled:bg-gray"
-                        fullWidth
-                        value={row.medicalLeave}
-                        onChange={handleFieldChange(row.id, "medicalLeave")}
-                        inputProps={{
-                          inputMode: "numeric",
-                          pattern: "[0-9]*",
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        type="text"
-                        size="small"
-                        fullWidth
-                      
-                        className="disabled:bg-gray"
-                        value={row.restrictedLeave}
-                        onChange={handleFieldChange(row.id, "restrictedLeave")}
-                        inputProps={{
-                          inputMode: "numeric",
-                          pattern: "[0-9]*",
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        type="text"
-                        size="small"
-                        fullWidth
-                        value={row.maternityLeave}
-                        onChange={handleFieldChange(row.id, "maternityLeave")}
-                        placeholder="Enter value"
-                        disabled={disableMaternity}
-                         className="disabled:bg-gray"
-                        inputProps={{
-                          inputMode: "numeric",
-                          pattern: "[0-9]*",
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        type="text"
-                        size="small"
-                        fullWidth
-                        value={row.paternityLeave}
-                          className="disabled:bg-gray"
-                        onChange={handleFieldChange(row.id, "paternityLeave")}
-                        placeholder="Enter value"
-                        disabled={disablePaternity}
-                        inputProps={{
-                          inputMode: "numeric",
-                          pattern: "[0-9]*",
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={getYearLabel(row.yearEnd)}
-                        InputProps={{ readOnly: true }}
-                        inputProps={{
-                          style: { textAlign: "center" },
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
-                      <IconButton
-                        color={isSaved ? "success" : "primary"}
-                        disabled={isSubmitting}
-                        onClick={() => handleSaveRow(row.id)}
-                      >
-                        {isSaved ? (
-                          <CheckCircleIcon />
-                        ) : (
-                          <SaveOutlinedIcon />
-                        )}
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <LeaveBalanceTable
+          rows={rows}
+          savedRowIds={savedRowIds}
+          fieldErrors={fieldErrors}
+          totalEmployees={totalEmployees}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          isSubmitting={isSubmitting}
+          getYearLabel={getYearLabel}
+          isMale={isMale}
+          isFemale={isFemale}
+          onFieldChange={handleFieldChange}
+          onSaveRow={handleSaveRow}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       )}
 
-      <Dialog open={confirmOpen} onClose={closeConfirmDialog}>
-        <DialogTitle>Confirm Submission</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to submit the saved leave balance details?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeConfirmDialog} color="inherit" disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleFinalSubmit} disabled={isSubmitting}>
-            Final Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <LeaveBalanceSubmitDialog
+        open={confirmOpen}
+        isSubmitting={isSubmitting}
+        onClose={closeConfirmDialog}
+        onSubmit={handleFinalSubmit}
+      />
     </Stack>
   );
 }

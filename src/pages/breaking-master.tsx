@@ -343,7 +343,7 @@ export default function BreakingMasterPage() {
                                 <TableCell sx={{ fontWeight: 600 }}>Designation Category</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Financial Year</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Start Month</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Basic Pay</TableCell>
+                                {/* <TableCell sx={{ fontWeight: 600 }}>Basic Pay</TableCell> */}
                                 <TableCell sx={{ fontWeight: 600 }}>Days</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
@@ -452,7 +452,7 @@ export default function BreakingMasterPage() {
                                 </Button>
                             </Grid>
                         )}
-                        <Grid item xs={12} sm={4}>
+                        {/* <Grid item xs={12} sm={4}>
                             <TextField
                                 fullWidth
                                 label="Basic Pay"
@@ -461,7 +461,7 @@ export default function BreakingMasterPage() {
                                 onChange={(e) => setFormData({ ...formData, dBasicPay: e.target.value })}
                                 InputProps={{ readOnly: !isEditing }}
                             />
-                        </Grid>
+                        </Grid> */}
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Working Days" type="number" value={formData.iWorkingDays} onChange={(e) => setFormData({ ...formData, iWorkingDays: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>
@@ -489,12 +489,12 @@ export default function BreakingMasterPage() {
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="P-Tax" type="number" value={formData.dDeductionOfPtax} onChange={(e) => setFormData({ ...formData, dDeductionOfPtax: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        {/* <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Income Tax" type="number" value={formData.dDeductionOfIncomeTax} onChange={(e) => setFormData({ ...formData, dDeductionOfIncomeTax: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Other Deduction" type="number" value={formData.dOtherDeduction} onChange={(e) => setFormData({ ...formData, dOtherDeduction: e.target.value })} InputProps={{ readOnly: !isEditing }} />
-                        </Grid>
+                        </Grid> */}
                     </Grid>
                 </DialogContent>
                 <DialogActions sx={{ p: 3 }}>

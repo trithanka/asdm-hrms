@@ -26,6 +26,7 @@ import { SalaryTransfer } from "./pages/salaryTransfer";
 import FinancialYearPage from "./pages/financial-year";
 import BreakingMasterPage from "./pages/breaking-master";
 import LeaveBalancePage from "./pages/leave-balance";
+import SalaryTimelinesPage from "./pages/salary-timelines";
 
 
 const router = createBrowserRouter([
@@ -133,6 +134,10 @@ const router = createBrowserRouter([
       {
         path: "salary-transfer",
         element: <SalaryTransfer />
+      },
+      {
+        path: "salary-transfer/timelines",
+        element: <SalaryTimelinesPage />
       },
       {
         path: "payroll",

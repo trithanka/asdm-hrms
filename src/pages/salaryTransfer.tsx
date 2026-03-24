@@ -3,6 +3,7 @@ import {
     Box,
     Typography,
     FormControl,
+    FormControlLabel,
     InputLabel,
     Select,
     MenuItem,
@@ -16,6 +17,9 @@ import {
     DialogContentText,
     DialogActions,
     Divider,
+    Radio,
+    RadioGroup,
+    TextField,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -30,6 +34,7 @@ import { formatFyMaster } from "../utils/formatter";
 
 import toast from "react-hot-toast";
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 const months = [
     { value: "4", label: "April" },
     { value: "5", label: "May" },
@@ -46,6 +51,7 @@ const months = [
 ];
 
 export const SalaryTransfer = () => {
+    const navigate = useNavigate();
 
     const [selectedStructureType, setSelectedStructureType] = useState<string>("ASDM_NESC");
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString());
@@ -54,9 +60,13 @@ export const SalaryTransfer = () => {
 
     // Dialog states
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [commentDialogOpen, setCommentDialogOpen] = useState(false);
     const [resultDialogOpen, setResultDialogOpen] = useState(false);
     const [counts, setCounts] = useState({ skipped: 0, valid: 0 });
     const [resultCounts, setResultCounts] = useState({ success: 0, failed: 0 });
+    const [generationQueue, setGenerationQueue] = useState<any[]>([]);
+    const [timelineComment, setTimelineComment] = useState("");
+    const [timelineStatus, setTimelineStatus] = useState<"Pending" | "Rejected" | "Approved">("Pending");
 
     // Fetch salary structure types and fyMaster
     const { data: structureTypesData, isLoading: isLoadingTypes } = useSalaryStructureTypes();
@@ -193,6 +203,29 @@ export const SalaryTransfer = () => {
         }
     };
 
+    const openCommentDialog = (employeesToProcess: any[]) => {
+        if (!employeesToProcess?.length) {
+            toast.error("No employees with valid attendance found.");
+            return;
+        }
+
+        setGenerationQueue(employeesToProcess);
+        setTimelineComment("");
+        setTimelineStatus("Pending");
+        setCommentDialogOpen(true);
+    };
+
+    const handleConfirmCommentAndGenerate = async () => {
+        if (!timelineComment.trim()) {
+            toast.error("Please add a comment before proceeding.");
+            return;
+        }
+
+        setCommentDialogOpen(false);
+        await runGeneration(generationQueue);
+        setGenerationQueue([]);
+    };
+
     const handleSubmit = async () => {
         const employeeData = currentTableData.length > 0 ? currentTableData : (employeeListData?.employeeList || []);
         if (employeeData.length === 0) {
@@ -212,7 +245,7 @@ export const SalaryTransfer = () => {
             setCounts({ skipped, valid: validEmployees.length });
             setConfirmDialogOpen(true);
         } else {
-            runGeneration(validEmployees);
+            openCommentDialog(validEmployees);
         }
     };
 
@@ -414,6 +447,16 @@ export const SalaryTransfer = () => {
                             )}
                             {employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
                                 <Button
+                                    variant="outlined"
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => navigate("/salary-transfer/timelines")}
+                                >
+                                    Timelines
+                                </Button>
+                            )}
+                            {employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
+                                <Button
                                     variant="contained"
                                     color="primary"
                                     size="small"
@@ -475,12 +518,68 @@ export const SalaryTransfer = () => {
                             setConfirmDialogOpen(false);
                             const employeeData = currentTableData.length > 0 ? currentTableData : (employeeListData?.employeeList || []);
                             const validEmployees = employeeData.filter((emp: any) => emp.attendance !== null && emp.attendance !== undefined && emp.attendance > 0);
-                            runGeneration(validEmployees);
+                            openCommentDialog(validEmployees);
                         }}
                         variant="contained"
                         color="warning"
                         sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
                         autoFocus
+                    >
+                        Proceed to Generate
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Comment & Status Dialog */}
+            <Dialog
+                open={commentDialogOpen}
+                onClose={() => setCommentDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 700 }}>
+                    Add Timeline Details
+                </DialogTitle>
+                <Divider />
+                <DialogContent>
+                    <TextField
+                        label="Comment"
+                        multiline
+                        minRows={3}
+                        fullWidth
+                        value={timelineComment}
+                        onChange={(e) => setTimelineComment(e.target.value)}
+                        placeholder="Enter your comment before generating salary"
+                        sx={{ mt: 1.5 }}
+                    />
+                    <FormControl sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                            Status
+                        </Typography>
+                        <RadioGroup
+                            row
+                            value={timelineStatus}
+                            onChange={(e) => setTimelineStatus(e.target.value as "Pending" | "Rejected" | "Approved")}
+                        >
+                            <FormControlLabel value="Pending" control={<Radio />} label="Pending" />
+                            <FormControlLabel value="Rejected" control={<Radio />} label="Rejected" />
+                            <FormControlLabel value="Approved" control={<Radio />} label="Approved" />
+                        </RadioGroup>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setCommentDialogOpen(false)}
+                        variant="outlined"
+                        color="inherit"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmCommentAndGenerate}
+                        variant="contained"
+                        disabled={generateSalaryMutation.isPending}
                     >
                         Proceed to Generate
                     </Button>

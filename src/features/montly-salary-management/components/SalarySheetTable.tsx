@@ -3,6 +3,7 @@ import {
     Paper,
     Table,
     TableBody,
+    Checkbox,
     TableCell,
     TableContainer,
     TableHead,
@@ -45,6 +46,8 @@ export interface SalarySheetData {
     ddvancesOtherDeductions: number | null;
     totalDeduction: number | null;
     netAmount: number | null;
+    employeeCommentBeforeAck?: string;
+    hold?: boolean;
     salaryStatus: string;
     workingDays?: number;
 }
@@ -73,17 +76,11 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
         const workingDays = Number((originalRow as any).workingDays || row.workingDays || 30);
         const attendance = Number(row.attendance ?? 0);
 
-        // Base monthly values from the original row (masters)
-        const baseBasicPay = Number(originalRow.basicPay || 0);
-        const incrementPercentage = Number(originalRow.incrementPercentage || 0);
-
-        // Use fullSalary from row if it exists (it's often pre-calculated by backend with last FY logic)
-        // fall back to calculating from basic + increment
-        let fullSalary = Number(row.fullSalary || originalRow.fullSalary || 0);
-        if (!fullSalary) {
-            const incrementAmount = (baseBasicPay * incrementPercentage) / 100;
-            fullSalary = baseBasicPay + incrementAmount;
-        }
+        // Base monthly values, with row edits taking priority over original API values.
+        const baseBasicPay = Number(row.basicPay ?? originalRow.basicPay ?? 0);
+        const incrementPercentage = Number(row.incrementPercentage ?? originalRow.incrementPercentage ?? 0);
+        const incrementPercentValueFy = (baseBasicPay * incrementPercentage) / 100;
+        const fullSalary = baseBasicPay + incrementPercentValueFy;
 
         // formulas from user
         const salary = (fullSalary / workingDays) * attendance;
@@ -113,11 +110,11 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
         const totalDeduction = pTax + incTax + otherDed;
         const netAmount = totalSalary - totalDeduction;
 
-        const incrementPercentValueFy = (baseBasicPay * incrementPercentage) / 100;
-
         return {
             ...row,
+            basicPay: baseBasicPay,
             incrementPercentValueFy,
+            fullSalary,
             salary,
             houseRentPercentValue: houseRentAmount,
             mobileInternet,
@@ -133,7 +130,10 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
     // Update table data when month/year changes or data arrives
     useEffect(() => {
         if (data.length > 0) {
-            const calculatedData = data.map(row => recalculateRow(row));
+            const calculatedData = data.map(row => ({
+                ...recalculateRow(row),
+                employeeCommentBeforeAck: row.employeeCommentBeforeAck ?? "",
+            }));
             setTableData(calculatedData);
         }
     }, [data, month, year]);
@@ -151,9 +151,10 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
             if (rowId === matchId || (id === null && idx === tableData.indexOf(row))) {
                 return {
                     ...row,
-                    [field]:
+                        [field]:
                         field === "attendance" ||
                             field === "lwpDays" ||
+                            field === "basicPay" ||
                             field === "arrear" ||
                             field === "deductionOfPtax" ||
                             field === "deductionIncomeTax" ||
@@ -178,6 +179,25 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
         setTableData(recalculatedData);
         if (onDataChange) {
             onDataChange(recalculatedData);
+        }
+    };
+
+    const handleHoldToggle = (id: number | null, checked: boolean) => {
+        const updatedData = tableData.map((row) => {
+            const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
+            const matchId = id ?? rowId;
+            if (rowId === matchId) {
+                return {
+                    ...row,
+                    hold: checked,
+                };
+            }
+            return row;
+        });
+
+        setTableData(updatedData);
+        if (onDataChange) {
+            onDataChange(updatedData);
         }
     };
 
@@ -282,6 +302,24 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                 left: 120,
                                 zIndex: 11,
                                 bgcolor: "#f5f5f5",
+                                textAlign: "center",
+                                minWidth: 70,
+                            }}
+                        >
+                            Hold
+                        </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                userSelect: "none",
+                                position: "sticky",
+                                left: 190,
+                                zIndex: 11,
+                                bgcolor: "#f5f5f5",
                                 minWidth: 150,
                             }}
                         >
@@ -301,13 +339,13 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                             Designation/Category
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#e3f2fd", userSelect: "none", textAlign: "center", minWidth: 100 }}>
-                            Attendance
+                            Attendance(in days)
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#e3f2fd", userSelect: "none", textAlign: "center", minWidth: 100 }}>
-                            LWP Days
+                            LWP Days(in days)
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#fff3e0", userSelect: "none", textAlign: "right", minWidth: 110 }}>
-                            Basic Pay
+                            Fixed pay 
                         </TableCell>
                         <TableCell
                             sx={{
@@ -447,6 +485,20 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                 letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
                                 userSelect: "none",
+                                textAlign: "left",
+                                minWidth: 240,
+                            }}
+                        >
+                            Comment by Employee Before Ack
+                        </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
+                                userSelect: "none",
                                 textAlign: "center",
                                 minWidth: 100,
                             }}
@@ -493,6 +545,22 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                         border: "1px solid #ddd",
                                         position: "sticky",
                                         left: 120,
+                                        bgcolor: "white",
+                                        zIndex: 11,
+                                        textAlign: "center"
+                                    }}
+                                >
+                                    <Checkbox
+                                        checked={Boolean(row.hold)}
+                                        onChange={(e) => handleHoldToggle(rowId, e.target.checked)}
+                                        size="small"
+                                    />
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        position: "sticky",
+                                        left: 190,
                                         zIndex: 11,
                                         bgcolor: "white",
                                         minWidth: 150,
@@ -543,8 +611,23 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                         }}
                                     />
                                 </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1" }}>
-                                    {formatValue(row.basicPay)}
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1", p: 0.5 }}>
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        value={row.basicPay ?? ""}
+                                        onChange={(e) => handleChange(e, rowId, "basicPay")}
+                                        inputProps={{ min: 0, step: "0.01" }}
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
+                                                fontSize: "0.875rem",
+                                            },
+                                            "& input": {
+                                                textAlign: "right",
+                                                padding: "4px 8px",
+                                            },
+                                        }}
+                                    />
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -682,6 +765,28 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "" }: 
                                     }}
                                 >
                                     {formatValue(row.netAmount)}
+                                </TableCell>
+                                <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
+                                    <TextField
+                                        size="small"
+                                        multiline
+                                        minRows={2}
+                                        value={row.employeeCommentBeforeAck ?? ""}
+                                        onChange={(e) => handleChange(e, rowId, "employeeCommentBeforeAck")}
+                                        placeholder="Enter comment"
+                                        fullWidth
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
+                                                fontSize: "0.875rem",
+                                                alignItems: "flex-start",
+                                            },
+                                            "& textarea": {
+                                                padding: "4px 8px",
+                                                resize: "vertical",
+                                                overflow: "auto",
+                                            },
+                                        }}
+                                    />
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
                                     {row.salaryStatus === "generated" && (

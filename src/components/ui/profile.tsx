@@ -11,7 +11,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useSignOut } from "react-auth-kit";
+import { useAuthUser, useSignOut } from "react-auth-kit";
 
 type ProfileProps = {
   onOpenResetPassword: () => void;
@@ -22,10 +22,37 @@ export default function Profile({ onOpenResetPassword }: ProfileProps) {
   const [userName, setUserName] = React.useState("");
   const open = Boolean(anchorEl);
   const signOut = useSignOut();
+  const authUser = useAuthUser();
+
+  const resolveName = React.useCallback(() => {
+    const localName = localStorage.getItem("name")?.trim();
+    if (localName) return localName;
+
+    const authState: any = authUser();
+    return (
+      authState?.name ||
+      authState?.username ||
+      authState?.userName ||
+      authState?.unique_name ||
+      authState?.sub ||
+      ""
+    );
+  }, [authUser]);
 
   React.useEffect(() => {
-    setUserName(localStorage.getItem("name") ?? "");
-  }, []);
+    const syncUserName = () => setUserName(resolveName());
+
+    syncUserName();
+    window.addEventListener("storage", syncUserName);
+    window.addEventListener("focus", syncUserName);
+    document.addEventListener("visibilitychange", syncUserName);
+
+    return () => {
+      window.removeEventListener("storage", syncUserName);
+      window.removeEventListener("focus", syncUserName);
+      document.removeEventListener("visibilitychange", syncUserName);
+    };
+  }, [resolveName]);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
