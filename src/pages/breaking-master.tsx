@@ -176,19 +176,17 @@ export default function BreakingMasterPage() {
         }
     }, [structureData, selectedFyId]);
 
+    const structTypeMapping: Record<string, number> = {
+        'ASDM_NESC': 1,
+        'Casual': 2,
+        'Part_Time': 3,
+        'AMD': 4
+    };
+
     const filteredDesignationCategories = useMemo(() => {
         if (!structureData?.data?.designationCategory) return [];
 
-        // Map string types to numeric IDs based on backend logic
-        // ASDM_NESC -> 1, Casual -> 2, Part_Time -> 3, AMD -> 4 (Inferred from payload)
-        const structTypeMapping: Record<string, number> = {
-            'ASDM_NESC': 1,
-            'Casual': 2,
-            'Part_Time': 3,
-            'AMD': 4
-        };
         const structId = structTypeMapping[selectedStructType];
-
         return structureData.data.designationCategory.filter((cat: any) => cat.fklSlarayStructureTypeId === structId);
     }, [structureData, selectedStructType]);
 
@@ -247,8 +245,10 @@ export default function BreakingMasterPage() {
                 return;
             }
 
+            const fklSalaryStructureType = structTypeMapping[selectedStructType] ?? 1;
+
             if (editingId) {
-                const payload: any = { ...formData, pklSalaryBreakingAsdmNescId: editingId };
+                const payload: any = { ...formData, pklSalaryBreakingAsdmNescId: editingId, fklSalaryStructureType };
                 Object.keys(payload).forEach(key => {
                     if (payload[key] === '') {
                         delete payload[key];
@@ -261,6 +261,7 @@ export default function BreakingMasterPage() {
             } else {
                 const payload = [
                     {
+                        fklSalaryStructureType,
                         designationCategoryId: Number(formData.fklDesignationCategoryId),
                         basicPay: toNumber(formData.dBasicPay),
                         workingDays: toNumber(formData.iWorkingDays),

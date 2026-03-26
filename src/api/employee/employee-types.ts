@@ -12,6 +12,7 @@ export interface IEmployee {
   locationName: string;
   joiningDate: string;
   status: "Active" | "Inactive";
+  approved?: number | null;
 }
 
 export interface IDevice {

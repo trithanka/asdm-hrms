@@ -8,9 +8,9 @@ import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import ExploreRoundedIcon from "@mui/icons-material/ExploreRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import TodayRoundedIcon from "@mui/icons-material/TodayRounded";
-import PlaylistAddCheckCircleOutlinedIcon from "@mui/icons-material/PlaylistAddCheckCircleOutlined";
+// import PlaylistAddCheckCircleOutlinedIcon from "@mui/icons-material/PlaylistAddCheckCircleOutlined";
 import ReportGmailerrorredIcon from "@mui/icons-material/ReportGmailerrorred";
-import DeviceUnknownIcon from "@mui/icons-material/DeviceUnknown";
+// import DeviceUnknownIcon from "@mui/icons-material/DeviceUnknown";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
@@ -162,12 +162,12 @@ export default function NavList({ open }: INavList) {
         </List>
       </Collapse>
 
-      <NavItem
+      {/* <NavItem
         link="/attendance"
         open={open}
         label="Attendance"
         icon={<PlaylistAddCheckCircleOutlinedIcon />}
-      />
+      /> */}
 
       <ListItemButton
         onClick={handleLeaveClick}
@@ -213,12 +213,12 @@ export default function NavList({ open }: INavList) {
 
       <Collapse in={leaveOpen} timeout="auto" unmountOnExit>
         <List component="div" disablePadding sx={{ pl: open ? 2 : 0 }}>
-          <NavItem
+          {/* <NavItem
             link="/leaves"
             open={open}
             label="Request"
             icon={<TodayRoundedIcon />}
-          />
+          /> */}
           <NavItem
             link="/leave-balance"
             open={open}
@@ -302,12 +302,12 @@ export default function NavList({ open }: INavList) {
         icon={<ReportGmailerrorredIcon />}
       />
 
-      <NavItem
+      {/* <NavItem
         link="/devices"
         open={open}
         label="Device Requests"
         icon={<DeviceUnknownIcon />}
-      />
+      /> */}
 
       <NavItem
         link="/time-management"

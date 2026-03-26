@@ -19,6 +19,7 @@ export default function EmployeeDetail() {
   const [enableEdit, setEnableEdit] = useState(false);
   const [employeeDetails, setEmployeeDetails] = useState({
     designationId: "",
+    departmentId: "",
     phoneNumber: "",
     email: "",
     branch: "",
@@ -35,6 +36,7 @@ export default function EmployeeDetail() {
   const {
     isLoading: pending,
     designations,
+    departments,
     banks,
   } = useFilters();
 
@@ -78,6 +80,11 @@ export default function EmployeeDetail() {
       if (employeeData) {
         setEmployeeDetails({
           designationId: employeeData.designationId,
+          departmentId: String(
+            employeeData.departmentId ||
+            employeeData.internalDepartmentId ||
+            ""
+          ),
           phoneNumber: employeeData.phone || '',
           email: employeeData.email || '',
           branch: employeeData.branch || '',
@@ -88,7 +95,7 @@ export default function EmployeeDetail() {
         });
       }
     }
-  }, [data])
+  }, [data, empId])
 
   const handleDetailsChange = (event: any, fieldName: any) => {
     const { value } = event.target;
@@ -102,17 +109,17 @@ export default function EmployeeDetail() {
     <p>Loading...</p>
   ) : (
     <Grid container spacing={ 2 }>
-      <BackButton />
-      <Grid item xs={ 12 } sm={ 6 } md={ 12 } gap={ 1 } display="flex" justifyContent="flex-end">
+      <Grid item xs={ 12 } display="flex" justifyContent="space-between" alignItems="center">
+        <BackButton />
         { enableEdit ?
           <Button onClick={ () => { setEnableEdit(false), handleSaveData() } }>
             <DoneIcon />
-            <Typography>Save</Typography>
+            <Typography>  Save</Typography>
           </Button>
           :
           <Button onClick={ () => setEnableEdit(true) }>
             <EditIcon />
-            <Typography>Edit</Typography>
+            <Typography>  Edit</Typography>
           </Button>
         }
       </Grid>
@@ -210,7 +217,7 @@ export default function EmployeeDetail() {
               </Typography>
             </Grid>
             { enableEdit ?
-              <Grid item display={ "flex" } direction={ "column" } xs={ 12 } sm={ 2 } md={ 3 }>
+              <Grid item display={ "flex" } sx={ { flexDirection: "column" } } xs={ 12 } sm={ 2 } md={ 3 }>
                 <Typography
                   variant="caption"
                   fontWeight={ 500 }
@@ -278,7 +285,7 @@ export default function EmployeeDetail() {
             </Grid>
 
             { enableEdit ?
-              <Grid item display={ "flex" } direction={ "column" } xs={ 12 } sm={ 2 } md={ 3 }>
+              <Grid item display={ "flex" } sx={ { flexDirection: "column" } } xs={ 12 } sm={ 2 } md={ 3 }>
                 <Typography
                   variant="caption"
                   fontWeight={ 500 }
@@ -643,6 +650,8 @@ export default function EmployeeDetail() {
                   <MuiSelect
                     key={ employeeDetails?.designationId }
                     size="small"
+                    fullWidth
+                    sx={{ minWidth: 220 }}
                     onChange={ (e) => {
                       handleDetailsChange(e, "designationId")
                     }
@@ -683,19 +692,54 @@ export default function EmployeeDetail() {
             }
 
 
-            <Grid item xs={ 12 } sm={ 4 }>
-              <Typography
-                variant="caption"
-                fontWeight={ 500 }
-                gutterBottom
-                sx={ { color: "gray" } }
-              >
-                Department
-              </Typography>
-              <Typography>
-                { data?.getEmployeData[0]?.departmentName ?? "N/A" }
-              </Typography>
-            </Grid>
+            { enableEdit && !pending ?
+              <Grid item xs={ 12 } sm={ 4 }>
+                <Typography
+                  variant="caption"
+                  fontWeight={ 500 }
+                  gutterBottom
+                  sx={ { color: "gray" } }
+                >
+                  Department
+                </Typography>
+                <Grid>
+                  <MuiSelect
+                    size="small"
+                    fullWidth
+                    sx={{ minWidth: 220 }}
+                    onChange={ (e) => {
+                      handleDetailsChange(e, "departmentId")
+                    }
+                    }
+                    value={ String(employeeDetails?.departmentId ?? "") }
+                    displayEmpty
+                  >
+                    <MenuItem disabled value="" sx={ { textTransform: "capitalize" } }>
+                      Select Department
+                    </MenuItem>
+                    { departments?.map((option, idx: number) => (
+                      <MenuItem key={ idx } value={ String(option.value) }>
+                        { option.label }
+                      </MenuItem>
+                    )) }
+                  </MuiSelect>
+                </Grid>
+              </Grid>
+              :
+              <Grid item xs={ 12 } sm={ 4 }>
+                <Typography
+                  variant="caption"
+                  fontWeight={ 500 }
+                  gutterBottom
+                  sx={ { color: "gray" } }
+                >
+                  Department
+                </Typography>
+                <Typography>
+                  { data?.getEmployeData[0]?.departmentName ?? "N/A" }
+                </Typography>
+              </Grid>
+            }
 
             <Grid item xs={ 12 } sm={ 4 }>
               <Typography
@@ -851,7 +895,7 @@ export default function EmployeeDetail() {
             }
 
             { enableEdit ?
-              <Grid item display={ "flex" } direction={ "column" } xs={ 12 } sm={ 2 } md={ 3 }>
+              <Grid item display={ "flex" } sx={ { flexDirection: "column" } } xs={ 12 } sm={ 2 } md={ 3 }>
                 <Typography
                   variant="caption"
                   fontWeight={ 500 }
@@ -888,7 +932,7 @@ export default function EmployeeDetail() {
             }
 
             { enableEdit ?
-              <Grid item display={ "flex" } direction={ "column" } xs={ 12 } sm={ 2 } md={ 3 }>
+              <Grid item display={ "flex" } sx={ { flexDirection: "column" } } xs={ 12 } sm={ 2 } md={ 3 }>
                 <Typography
                   variant="caption"
                   fontWeight={ 500 }
@@ -921,7 +965,7 @@ export default function EmployeeDetail() {
               </Grid>
             }
             { enableEdit ?
-              <Grid item display={ "flex" } direction={ "column" } xs={ 12 } sm={ 2 } md={ 3 }>
+              <Grid item display={ "flex" } sx={ { flexDirection: "column" } } xs={ 12 } sm={ 2 } md={ 3 }>
                 <Typography
                   variant="caption"
                   fontWeight={ 500 }

@@ -35,6 +35,8 @@ import { formatFyMaster } from "../utils/formatter";
 import toast from "react-hot-toast";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthUser } from "react-auth-kit";
+import { getRoleIdFromToken } from "../utils/auth";
 const months = [
     { value: "4", label: "April" },
     { value: "5", label: "May" },
@@ -52,6 +54,7 @@ const months = [
 
 export const SalaryTransfer = () => {
     const navigate = useNavigate();
+    const authUser = useAuthUser();
 
     const [selectedStructureType, setSelectedStructureType] = useState<string>("ASDM_NESC");
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString());
@@ -77,27 +80,97 @@ export const SalaryTransfer = () => {
         return formatFyMaster(structureTypesData.data.fyMaster);
     }, [structureTypesData]);
 
+    // Resolve numeric structure type ID from the selected type string
+    const structureTypeId = structureTypesData?.data?.salaryStructureTypes?.find(
+        (s) => s.type === selectedStructureType
+    )?.id;
+
     // Fetch employee list based on selected filters
     // Send pklSalaryFinancialYearId as string instead of year
     const { data: employeeListData, isLoading: isLoadingEmployees, error: employeeError } = useEmployeeList(
-        selectedStructureType,
+        structureTypeId !== undefined ? structureTypeId.toString() : selectedStructureType,
         selectedMonth,
         selectedYear ? selectedYear.toString() : undefined
     );
 
     const generateSalaryMutation = useGenerateSalary();
-    const { exportToExcel } = useExportSalaryReport();
+    const { exportToExcel, exportToPdf } = useExportSalaryReport();
 
-    // Set default enabled financial year
+    // Resolve roleId for permission control in the salary sheet
+    const resolvedRoleId = (() => {
+        // 1. Try JWT token first (most reliable)
+        const tokenRoleId = getRoleIdFromToken();
+        if (tokenRoleId !== null && Number.isFinite(tokenRoleId) && tokenRoleId > 0) {
+            return tokenRoleId;
+        }
+
+        // 2. Fallback: try react-auth-kit state
+        const authState: any = authUser();
+        const fallbackId = Number(
+            authState?.roleId ??
+            authState?.fklRoleId ??
+            authState?.roleID ??
+            authState?.RoleId ??
+            authState?.role_id ??
+            0
+        );
+
+        return fallbackId;
+    })();
+
+    // stepTrack for the currently selected FY/month — lives on each employee row, read the first to get the process step
+    const currentStepTrack: number | null = employeeListData?.employeeList?.[0]?.stepTrack ?? null;
+
+    const resolveTrackStep = () => {
+        // Source of truth: roleId from JWT token so it survives refresh.
+        const tokenRoleId = getRoleIdFromToken();
+        if (tokenRoleId === 98) return 1;
+        if (tokenRoleId === 36) return 2;
+
+        // Fallback for non-standard token payloads.
+        const authState: any = authUser();
+        const roleId = Number(
+            authState?.roleId ??
+            authState?.fklRoleId ??
+            authState?.roleID ??
+            authState?.RoleId
+        );
+
+        if (roleId === 98) return 1;
+        if (roleId === 36) return 2;
+        return 3;
+    };
+
+    // Set default financial year based on current date (with safe fallback)
     useEffect(() => {
         if (structureTypesData?.data?.fyMaster && selectedYear === "") {
-            // Find all enabled financial years
-            const enabledYears = structureTypesData.data.fyMaster.filter(fy => fy.bEnabled === 1);
-            if (enabledYears.length > 0) {
-                // Pick the latest one (highest ID is usually the most recent configuration)
-                const latestFy = [...enabledYears].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0];
-                setSelectedYear(latestFy.pklSalaryFinancialYearId);
+            const enabledYears = structureTypesData.data.fyMaster.filter((fy) => fy.bEnabled === 1);
+            if (enabledYears.length === 0) return;
+
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1; // 1-12
+            const currentYear = now.getFullYear();
+            const currentFyStartYear = currentMonth < 4 ? currentYear - 1 : currentYear;
+
+            const getScore = (val: number) => (val < 4 ? val + 12 : val);
+            const currentMonthScore = getScore(currentMonth);
+
+            const sameFyConfigs = enabledYears.filter((fy) => Number(fy.vsFy) === currentFyStartYear);
+
+            if (sameFyConfigs.length > 0) {
+                // If multiple configs exist for same FY, choose the most recent effective start month.
+                const bestMatch = [...sameFyConfigs]
+                    .filter((fy) => getScore(fy.iStartMonth) <= currentMonthScore)
+                    .sort((a, b) => getScore(b.iStartMonth) - getScore(a.iStartMonth))[0]
+                    || [...sameFyConfigs].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0];
+
+                setSelectedYear(bestMatch.pklSalaryFinancialYearId);
+                return;
             }
+
+            // Fallback: pick latest enabled config.
+            const latestFy = [...enabledYears].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0];
+            setSelectedYear(latestFy.pklSalaryFinancialYearId);
         }
     }, [structureTypesData, selectedYear]);
 
@@ -173,20 +246,52 @@ export const SalaryTransfer = () => {
         }
     };
 
+    const handleExportPdfReport = async () => {
+        const employeeData = currentTableData.length > 0
+            ? currentTableData
+            : (employeeListData?.employeeList || []);
+
+        if (employeeData.length === 0) {
+            toast.error("No data available to export");
+            return;
+        }
+
+        const selectedYearLabel = formattedYears.find(fy => fy.value === selectedYear)?.label || (selectedYear ? selectedYear.toString() : "");
+
+        const fileName = await exportToPdf(employeeData, {
+            month: selectedMonth,
+            year: selectedYearLabel,
+            structureType: selectedStructureType,
+        });
+
+        if (fileName) {
+            toast.success(`Report downloaded: ${fileName}`);
+        } else {
+            toast.error("Failed to export PDF report");
+        }
+    };
+
     const runGeneration = async (employeesToProcess: any[]) => {
         const generateEmployees = employeesToProcess.map((emp: any) => ({
+            fullName: emp.fullName ?? "",
             employeeId: emp.employeeId,
             attendance: emp.attendance ?? null,
             lwp: emp.lwpDays ?? null,
             arear: emp.arrear ?? null,
             incomeTax: emp.deductionIncomeTax ?? null,
             otherDeduction: emp.ddvancesOtherDeductions ?? null,
+            isHold: emp.hold ? 1 : 0,
         }));
 
+        const structureTypeId = structureTypesData?.data?.salaryStructureTypes?.find(
+            (s) => s.type === selectedStructureType
+        )?.id ?? selectedStructureType;
+
         const payload = {
-            salaryStructureType: selectedStructureType,
+            salaryStructureType: structureTypeId,
             generateMonth: selectedMonth,
             generateYear: selectedYear.toString(),
+            trackStep: resolveTrackStep(),
             generateEmployees,
         };
 
@@ -322,6 +427,8 @@ export const SalaryTransfer = () => {
                         onDataChange={handleSalaryDataChange}
                         month={selectedMonth}
                         year={selectedYear ? selectedYear.toString() : ""}
+                        roleId={resolvedRoleId}
+                        stepTrack={currentStepTrack}
                     />
                 );
 
@@ -362,6 +469,7 @@ export const SalaryTransfer = () => {
                         gap: 2,
                         backgroundColor: "white",
                         p: 2,
+                        mb: 3,
                         borderRadius: 2,
                         boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
                         border: "1px solid #edf2f7",
@@ -430,52 +538,100 @@ export const SalaryTransfer = () => {
                         </FormControl>
                     </Stack>
 
-                    {/* Actions Group */}
-                    {selectedStructureType && selectedMonth && selectedYear !== "" && (
-                        <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
-                            {selectedStructureType === "ASDM_NESC" && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
-                                <Button
-                                    variant="outlined"
-                                    color="success"
-                                    size="small"
-                                    onClick={handleExportReport}
-                                    disabled={isLoadingEmployees}
-                                    startIcon={<DownloadIcon />}
-                                >
-                                    Download Report (XL)
-                                </Button>
-                            )}
-                            {employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
-                                <Button
-                                    variant="outlined"
-                                    color="inherit"
-                                    size="small"
-                                    onClick={() => navigate("/salary-transfer/timelines")}
-                                >
-                                    Timelines
-                                </Button>
-                            )}
-                            {employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    size="small"
-                                    onClick={handleSubmit}
-                                    disabled={
-                                        generateSalaryMutation.isPending ||
-                                        isLoadingEmployees ||
-                                        employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
-                                    }
-                                    startIcon={generateSalaryMutation.isPending ? <CircularProgress size={20} /> : null}
-                                >
-                                    {generateSalaryMutation.isPending
-                                        ? "Generating..."
-                                        : employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
-                                            ? "Salary Generated"
-                                            : "Generate Salary"
-                                    }
-                                </Button>
-                            )}
+                    {/* Stage Indicator moved to top right */}
+                    {selectedStructureType && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                Current Stage:
+                            </Typography>
+                            <Box sx={{
+                                px: 1.5, py: 0.5, borderRadius: 10,
+                                bgcolor: currentStepTrack === 4 ? '#e8f5e9' :
+                                    currentStepTrack === 3 ? '#e3f2fd' :
+                                        currentStepTrack === 2 ? '#fff3e0' : '#f5f5f5',
+                                color: currentStepTrack === 4 ? '#2e7d32' :
+                                    currentStepTrack === 3 ? '#1976d2' :
+                                        currentStepTrack === 2 ? '#ed6c02' : '#757575',
+                                fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase'
+                            }}>
+                                {currentStepTrack === 1 || currentStepTrack === null ? "Preparation" :
+                                    currentStepTrack === 2 ? "Finance Verification" :
+                                        currentStepTrack === 3 ? "Generate Salary" :
+                                            currentStepTrack === 4 ? "Completed" : `Step ${currentStepTrack}`}
+                            </Box>
+                        </Box>
+                    )}
+
+                    {/* Second Row: Extensive Action Buttons (Now inside the same card) */}
+                    {selectedStructureType && employeeListData?.employeeList && employeeListData.employeeList.length > 0 && (
+                        <Box sx={{
+                            mt: 2.5, pt: 2, borderTop: '1px solid #edf2f7',
+                            display: "flex", flexWrap: "wrap", gap: 1,
+                            alignItems: "center", justifyContent: "flex-end",
+                            width: '100%'
+                        }}>
+                            <Button
+                                variant="outlined" color="success" size="small"
+                                onClick={handleExportReport} disabled={isLoadingEmployees}
+                                startIcon={<DownloadIcon />} sx={{ textTransform: 'none' }}
+                            >
+                                XL Report
+                            </Button>
+                            <Button
+                                variant="outlined" color="secondary" size="small"
+                                onClick={handleExportPdfReport} disabled={isLoadingEmployees}
+                                startIcon={<DownloadIcon />} sx={{ textTransform: 'none' }}
+                            >
+                                PDF Report
+                            </Button>
+
+                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                            {/* Workflow Buttons */}
+                            <Button
+                                variant="outlined" color="inherit" size="small"
+                                onClick={() => navigate("/salary-transfer/timelines")}
+                                sx={{ textTransform: 'none' }}
+                            >
+                                Timelines
+                            </Button>
+                            <Button variant="outlined" color="primary" size="small" sx={{ textTransform: 'none' }}>
+                                Forward to Finance
+                            </Button>
+                            <Button variant="outlined" color="primary" size="small" sx={{ textTransform: 'none' }}>
+                                Forward to HR
+                            </Button>
+                            <Button variant="outlined" color="warning" size="small" sx={{ textTransform: 'none' }}>
+                                Revert to HR
+                            </Button>
+                            <Button variant="outlined" color="warning" size="small" sx={{ textTransform: 'none' }}>
+                                Revert to Finance
+                            </Button>
+                            <Button variant="contained" color="secondary" size="small" sx={{ textTransform: 'none' }}>
+                                Enable Salary Slip
+                            </Button>
+
+                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                            {/* Final Approve (Generate Salary) */}
+                            <Button
+                                variant="contained" color="success" size="small"
+                                onClick={handleSubmit}
+                                disabled={
+                                    generateSalaryMutation.isPending ||
+                                    isLoadingEmployees ||
+                                    employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
+                                }
+                                startIcon={generateSalaryMutation.isPending ? <CircularProgress size={16} color="inherit" /> : null}
+                                sx={{ px: 3, fontWeight: 700, textTransform: 'none' }}
+                            >
+                                {generateSalaryMutation.isPending
+                                    ? "Processing..."
+                                    : employeeListData.employeeList.every((emp: any) => emp.salaryStatus === "generated")
+                                        ? "Approved"
+                                        : "Generate Salary"
+                                }
+                            </Button>
                         </Box>
                     )}
                 </Box>
@@ -546,7 +702,7 @@ export const SalaryTransfer = () => {
                     <TextField
                         label="Comment"
                         multiline
-                        minRows={3}
+                        minRows={1}
                         fullWidth
                         value={timelineComment}
                         onChange={(e) => setTimelineComment(e.target.value)}

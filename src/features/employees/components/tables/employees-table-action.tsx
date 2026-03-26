@@ -19,7 +19,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { postReleseEmployee } from "../../../../api/employee/employee-api";
+import { approveEmployee, postReleseEmployee } from "../../../../api/employee/employee-api";
 import { IEmployee } from "../../../../api/employee/employee-types";
 import Drawer from "../../../../components/ui/drawer";
 import Input from "../../../../components/ui/input";
@@ -41,6 +41,7 @@ type FormValues = {
 export default function EmployeesTableAction(props: Props) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isApprovalLocked = props?.employee?.approved !== null && props?.employee?.approved !== undefined;
 
   const { handleSubmit, control } = useForm<FormValues>({
     defaultValues: {
@@ -68,22 +69,50 @@ export default function EmployeesTableAction(props: Props) {
     },
   });
 
+  const { mutate: mutateApprove, isPending: isApproving } = useMutation({
+    mutationFn: approveEmployee,
+    onSuccess(data) {
+      const statusValue = String(data?.status ?? "").toLowerCase();
+      const isSuccess = data?.status === true || statusValue === "success";
+      if (!isSuccess) {
+        toast.error(data?.message ?? "Failed to update approval status");
+        return;
+      }
+
+      queryClient.invalidateQueries({
+        queryKey: [QUERY_KEYS.EMPLOYEES],
+      });
+      closeApproveDialog();
+      toast.success(data?.message ?? (pendingApprovalStatus === 1 ? "Employee approved successfully" : "Employee rejected successfully"));
+    },
+    onError(error: any) {
+      toast.error(error?.response?.data?.message || error?.message || "Something went wrong!");
+    },
+  });
+
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [openList, setOpenList] = React.useState(false);
   const [openRelease, setOpenRelease] = React.useState(false);
+  const [openApprove, setOpenApprove] = React.useState(false);
+  const [pendingApprovalStatus, setPendingApprovalStatus] = React.useState<0 | 1>(1);
 
   const [openAttendance, setOpenAttendance] = React.useState(false);
   const [openLocation, setOpenLocation] = React.useState(false);
 
-  const openAttendanceList = () => setOpenAttendance(true);
+  // const openAttendanceList = () => setOpenAttendance(true);
   const closeAttendanceList = () => setOpenAttendance(false);
 
-  const openDeviceList = () => setOpenList(true);
+  // const openDeviceList = () => setOpenList(true);
   const closeDeviceList = () => setOpenList(false);
 
 
   const openReleaseDialog = () => setOpenRelease(true);
   const closeReleaseDialog = () => setOpenRelease(false);
+  const openApproveDialog = (approvalStatus: 0 | 1) => {
+    setPendingApprovalStatus(approvalStatus);
+    setOpenApprove(true);
+  };
+  const closeApproveDialog = () => setOpenApprove(false);
 
   const openLocationList = () => setOpenLocation(true);
   const closeLocationList = () => setOpenLocation(false);
@@ -111,18 +140,18 @@ export default function EmployeesTableAction(props: Props) {
     setAnchorEl(null);
   };
 
-  function redirectToAttendance() {
-    handleClose();
-    openAttendanceList();
-  }
+  // function redirectToAttendance() {
+  //   handleClose();
+  //   openAttendanceList();
+  // }
 
-  function redirectToLeaves() {
-    handleClose();
-    navigate({
-      pathname: "leaves",
-      search: `?empId=${props?.id}`,
-    });
-  }
+  // function redirectToLeaves() {
+  //   handleClose();
+  //   navigate({
+  //     pathname: "leaves",
+  //     search: `?empId=${props?.id}`,
+  //   });
+  // }
 
   function redirectToView() {
     handleClose();
@@ -130,10 +159,10 @@ export default function EmployeesTableAction(props: Props) {
   }
 
 
-  function showDevices() {
-    handleClose();
-    openDeviceList();
-  }
+  // function showDevices() {
+  //   handleClose();
+  //   openDeviceList();
+  // }
 
   function releaseHandler() {
     handleClose();
@@ -143,6 +172,15 @@ export default function EmployeesTableAction(props: Props) {
   function handleLocation() {
     handleClose();
     openLocationList();
+  }
+
+  function approveHandler(approvalStatus: 0 | 1) {
+    handleClose();
+    openApproveDialog(approvalStatus);
+  }
+
+  function confirmApprove() {
+    mutateApprove({ empId: props.id, approvalStatus: pendingApprovalStatus });
   }
 
   const open = Boolean(anchorEl);
@@ -178,10 +216,32 @@ export default function EmployeesTableAction(props: Props) {
         } }
       >
         <MenuItem onClick={ redirectToView }>View & Edit</MenuItem>
-        <MenuItem onClick={ showDevices }>Devices</MenuItem>
-        <MenuItem onClick={ redirectToLeaves }>Leaves</MenuItem>
+        {/* <MenuItem onClick={ showDevices }>Devices</MenuItem> */}
+        {/* <MenuItem onClick={ redirectToLeaves }>Leaves</MenuItem> */}
         <MenuItem onClick={ handleLocation }>Location</MenuItem>
-        <MenuItem onClick={ redirectToAttendance }>Attendance</MenuItem>
+        {/* <MenuItem onClick={ redirectToAttendance }>Attendance</MenuItem> */}
+        <MenuItem
+          onClick={ () => approveHandler(1) }
+          disabled={ isApprovalLocked }
+          sx={ {
+            fontWeight: 700,
+            color: "success.main",
+            bgcolor: "success.50",
+          } }
+        >
+          Approve
+        </MenuItem>
+        <MenuItem
+          onClick={ () => approveHandler(0) }
+          disabled={ isApprovalLocked }
+          sx={ {
+            fontWeight: 700,
+            color: "error.main",
+            bgcolor: "error.50",
+          } }
+        >
+          Reject
+        </MenuItem>
         <MenuItem onClick={ releaseHandler }>Release</MenuItem>
       </Menu>
 
@@ -202,6 +262,52 @@ export default function EmployeesTableAction(props: Props) {
 
       {/* Release */ }
       <Dialog
+        open={ openApprove }
+        onClose={ closeApproveDialog }
+      >
+        <DialogTitle sx={ { color: pendingApprovalStatus === 1 ? "success.main" : "error.main", fontWeight: 700 } }>
+          { pendingApprovalStatus === 1 ? "Approve Employee" : "Reject Employee" }
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to { pendingApprovalStatus === 1 ? "approve" : "reject" }
+            <Typography
+              component="span"
+              fontWeight={ 500 }
+              color="text.primary"
+              textTransform="uppercase"
+              px={ 1 }
+            >
+              { props?.employee?.firstName } { props?.employee?.middleName }{ " " }
+              { props?.employee?.lastName }
+            </Typography>
+            with employee id
+            <Typography
+              component="span"
+              fontWeight={ 500 }
+              color="text.primary"
+              textTransform="uppercase"
+              px={ 1 }
+            >
+              { props?.employee?.employeeId }
+            </Typography>
+            ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={ closeApproveDialog } disabled={ isApproving }>Cancel</Button>
+          <LoadingButton
+            onClick={ confirmApprove }
+            loading={ isApproving }
+            variant="contained"
+            color={ pendingApprovalStatus === 1 ? "success" : "error" }
+          >
+            { pendingApprovalStatus === 1 ? "Approve" : "Reject" }
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={ openRelease }
         onClose={ closeReleaseDialog }
         component="form"
@@ -209,7 +315,7 @@ export default function EmployeesTableAction(props: Props) {
       >
         <DialogTitle>Release Employee</DialogTitle>
         <DialogContent>
-          <DialogContentText paddingBottom={ 3 }>
+          <DialogContentText component="div" sx={ { pb: 3 } }>
             Are you sure you want to release
             <Typography
               component="span"

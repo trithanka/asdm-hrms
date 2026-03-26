@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
 
 interface SalarySheetData {
     employeeId: number;
@@ -221,6 +223,220 @@ export function exportAsdmNescSalaryReport(
 }
 
 export function useExportSalaryReport() {
+    const exportToPdf = async (
+        data: SalarySheetData[],
+        options: ExportOptions
+    ): Promise<string | null> => {
+        if (!data || data.length === 0) {
+            return null;
+        }
+
+        try {
+            const monthName = MONTH_NAMES[parseInt(options.month) - 1] || options.month;
+            const fileName = `ASDM_NESC_Salary_Report_${monthName}_${options.year}.pdf`;
+            const generatedOn = new Date().toLocaleDateString("en-IN");
+
+            const bodyRows = data
+                .map(
+                    (emp, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${emp.employeeId}</td>
+                        <td style="white-space:nowrap;">${emp.fullName ?? ""}</td>
+                        <td style="white-space:nowrap;">${emp.designationName ?? ""}</td>
+                        <td>${emp.designationCategory ?? ""}</td>
+                        <td style="text-align:right;">${(emp.attendance ?? 0).toLocaleString()}</td>
+                        <td style="text-align:right;">${(emp.lwpDays ?? 0).toLocaleString()}</td>
+                        <td style="text-align:right;">${(emp.basicPay ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.incrementPercentValueFy ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.salary ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.houseRentPercentValue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.mobileInternet ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.newsPaperMagazine ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.conveyanceAllowances ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.educationAllowance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.arrear ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.totalSalary ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.deductionOfPtax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.deductionIncomeTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.ddvancesOtherDeductions ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right;">${(emp.totalDeduction ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right; font-weight:bold;">${(emp.netAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td>${emp.salaryStatus ?? ""}</td>
+                    </tr>
+                `
+                )
+                .join("");
+
+            const totals = data.reduce(
+                (acc, emp) => ({
+                    attendance: acc.attendance + (emp.attendance ?? 0),
+                    lwpDays: acc.lwpDays + (emp.lwpDays ?? 0),
+                    basicPay: acc.basicPay + (emp.basicPay ?? 0),
+                    increment: acc.increment + (emp.incrementPercentValueFy ?? 0),
+                    salary: acc.salary + (emp.salary ?? 0),
+                    houseRent: acc.houseRent + (emp.houseRentPercentValue ?? 0),
+                    mobileInternet: acc.mobileInternet + (emp.mobileInternet ?? 0),
+                    newsPaperMagazine: acc.newsPaperMagazine + (emp.newsPaperMagazine ?? 0),
+                    conveyanceAllowances: acc.conveyanceAllowances + (emp.conveyanceAllowances ?? 0),
+                    educationAllowance: acc.educationAllowance + (emp.educationAllowance ?? 0),
+                    arrear: acc.arrear + (emp.arrear ?? 0),
+                    totalSalary: acc.totalSalary + (emp.totalSalary ?? 0),
+                    deductionOfPtax: acc.deductionOfPtax + (emp.deductionOfPtax ?? 0),
+                    deductionIncomeTax: acc.deductionIncomeTax + (emp.deductionIncomeTax ?? 0),
+                    otherDeductions: acc.otherDeductions + (emp.ddvancesOtherDeductions ?? 0),
+                    totalDeduction: acc.totalDeduction + (emp.totalDeduction ?? 0),
+                    netAmount: acc.netAmount + (emp.netAmount ?? 0),
+                }),
+                {
+                    attendance: 0, lwpDays: 0, basicPay: 0, increment: 0, salary: 0,
+                    houseRent: 0, mobileInternet: 0, newsPaperMagazine: 0,
+                    conveyanceAllowances: 0, educationAllowance: 0, arrear: 0,
+                    totalSalary: 0, deductionOfPtax: 0, deductionIncomeTax: 0,
+                    otherDeductions: 0, totalDeduction: 0, netAmount: 0
+                }
+            );
+
+            const content = `
+            <style>
+                .payroll-pdf {
+                    font-family: Arial, sans-serif;
+                    color: #222;
+                    font-size: 8px;
+                    padding: 20px;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 12px;
+                }
+                .header h2 {
+                    margin: 0;
+                    font-size: 16px;
+                }
+                .header p {
+                    margin: 4px 0 0;
+                    font-size: 10px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 12px;
+                }
+                th, td {
+                    border: 1px solid #333;
+                    padding: 4px;
+                    font-size: 8px;
+                }
+                th {
+                    background: #f2f2f2;
+                    text-align: left;
+                }
+                .footer {
+                    margin-top: 40px;
+                    display: flex;
+                    justify-content: flex-end;
+                }
+                .signature-block {
+                    text-align: center;
+                    font-weight: bold;
+                    font-size: 10px;
+                }
+                .signature-block p {
+                    margin: 0;
+                }
+            </style>
+
+            <div class="payroll-pdf">
+                <div class="header">
+                    <h2>Employee Wise Payroll Report</h2>
+                    <p>Month: <strong>${monthName}</strong> | Financial Year: <strong>${options.year}</strong> | Generated On: <strong>${generatedOn}</strong></p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sl. No.</th>
+                            <th>Emp ID</th>
+                            <th>Name</th>
+                            <th>Designation</th>
+                            <th>Category</th>
+                            <th>Att.</th>
+                            <th>LWP</th>
+                            <th>Basic Pay</th>
+                            <th>Inc.</th>
+                            <th>Salary</th>
+                            <th>HRA</th>
+                            <th>Mob/Int</th>
+                            <th>News</th>
+                            <th>Conv. All.</th>
+                            <th>Edu. All.</th>
+                            <th>Arrear</th>
+                            <th>Total Pay</th>
+                            <th>PTax</th>
+                            <th>ITax</th>
+                            <th>Other Ded.</th>
+                            <th>Total Ded.</th>
+                            <th>Net Amt.</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bodyRows}
+                        <tr>
+                            <td colspan="5" style="font-weight:700;">TOTAL</td>
+                            <td style="text-align:right;font-weight:700;">${totals.attendance.toLocaleString()}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.lwpDays.toLocaleString()}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.basicPay.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.increment.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.salary.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.houseRent.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.mobileInternet.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.newsPaperMagazine.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.conveyanceAllowances.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.educationAllowance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.arrear.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.totalSalary.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.deductionOfPtax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.deductionIncomeTax.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.otherDeductions.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.totalDeduction.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right;font-weight:700;">${totals.netAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    <div class="signature-block">
+                        <p>Mission Director</p>
+                        <p>Assam Skill Development Mission</p>
+                        <p>Katabari (Assam), GHY-35</p>
+                    </div>
+                </div>
+            </div>
+            `;
+
+            const element = document.createElement("div");
+            element.innerHTML = content;
+            document.body.appendChild(element);
+
+            const opt = {
+                margin: [8, 8, 8, 8],
+                filename: fileName,
+                image: { type: "jpeg", quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: "mm", format: "a3", orientation: "landscape" },
+            };
+
+            await html2pdf().set(opt).from(element).save();
+            document.body.removeChild(element);
+            return fileName;
+        } catch (error) {
+            console.error("Error exporting salary PDF report:", error);
+            return null;
+        }
+    };
+
     const exportToExcel = (
         data: SalarySheetData[],
         options: ExportOptions
@@ -237,5 +453,5 @@ export function useExportSalaryReport() {
         }
     };
 
-    return { exportToExcel };
+    return { exportToExcel, exportToPdf };
 }

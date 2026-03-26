@@ -141,6 +141,21 @@ export default function LeaveBalancePage() {
   }, []);
 
   useEffect(() => {
+    if (yearOptions.length === 0 || globalYearEnd) return;
+
+    const currentYear = new Date().getFullYear();
+    const exactCurrentYear = yearOptions.find((year) => Number(year.vsYear) === currentYear);
+
+    const fallbackYear =
+      [...yearOptions].sort(
+        (a, b) => Number(b.vsYear || 0) - Number(a.vsYear || 0) || b.pklYearId - a.pklYearId
+      )[0];
+
+    const defaultYearId = String((exactCurrentYear ?? fallbackYear).pklYearId);
+    setGlobalYearEnd(defaultYearId);
+  }, [yearOptions, globalYearEnd]);
+
+  useEffect(() => {
     setPage(0);
   }, [debouncedSearchName, designationId]);
 
@@ -160,7 +175,7 @@ export default function LeaveBalancePage() {
           offset: number;
         } = {
           limit: rowsPerPage,
-          offset: page * rowsPerPage,
+          offset: page + 1,
         };
 
         if (debouncedSearchName) {
@@ -178,7 +193,13 @@ export default function LeaveBalancePage() {
         if (!isMounted) return;
 
         const responseRows = employeeResponse.data.data ?? [];
-        setRows(responseRows.map((employee) => mapEmployeeToLeaveRow(employee, yearOptions)));
+        const mappedRows = responseRows.map((employee) => mapEmployeeToLeaveRow(employee, yearOptions));
+        setRows(
+          mappedRows.map((row) => ({
+            ...row,
+            yearEnd: row.yearEnd || globalYearEnd,
+          }))
+        );
         setTotalEmployees(employeeResponse.data.total ?? responseRows.length);
         setSavedRowIds([]);
         setSubmitted(false);

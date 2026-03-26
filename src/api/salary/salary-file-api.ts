@@ -33,6 +33,7 @@ export interface GenerateSalaryFileResponse {
 }
 
 export interface SalaryStructureType {
+    id: number;
     type: string;
 }
 
@@ -108,6 +109,9 @@ export interface EmployeeData {
     generateSalaryDate: string | null;
     pklSalaryBreakingAsdmNescEmployeeWiseId: number | null;
     salaryStatus: string;
+    stepTrack: number | null;
+    isHold: number | null;
+    comment: string | null;
 }
 
 export interface EmployeeListResponse {
@@ -118,18 +122,21 @@ export interface EmployeeListResponse {
 }
 
 export interface GenerateEmployeeData {
+    fullName: string;
     employeeId: number;
     attendance: number;
     lwp: number;
     arear: number;
     incomeTax: number;
     otherDeduction: number;
+    isHold: number;
 }
 
 export interface GenerateSalaryPayload {
-    salaryStructureType: string;
+    salaryStructureType: number | string;
     generateMonth: string;
     generateYear: string;
+    trackStep?: number;
     generateEmployees: GenerateEmployeeData[];
 }
 

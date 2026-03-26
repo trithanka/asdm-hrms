@@ -11,12 +11,20 @@ import {
   IFilterData,
 } from "./employee-types";
 
-export async function fetchEmployees(): Promise<{
+export async function fetchEmployees(
+  page: number = 0,
+  limit: number = 10,
+  search: string = ""
+): Promise<{
   employeeList: IEmployee[];
+  total?: number;
+  totalPages?: number;
+  currentPage?: number;
+  limit?: number;
   status: IStatus;
   message?: string;
 }> {
-  const response = await API.post("EmployeeManagement/get");
+  const response = await API.post("EmployeeManagement/get", { page, limit, search });
   return response.data;
 }
 
@@ -98,6 +106,11 @@ export async function postReleseEmployee(postData: {
     "EmployeeManagement/release/releaseEmployee",
     postData
   );
+  return response.data;
+}
+
+export async function approveEmployee(postData: { empId: number; approvalStatus: 0 | 1 }) {
+  const response = await API.post("EmployeeManagement/employee/approve", postData);
   return response.data;
 }
 

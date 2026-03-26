@@ -25,6 +25,8 @@
     "axios": "^1.7.7",
     "html2pdf.js": "^0.10.2",
     "js-cookie": "^3.0.5",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "jwt-decode": "^4.0.0",
     "mapbox-gl": "^3.3.0",
     "moment": "^2.30.1",

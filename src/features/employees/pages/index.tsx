@@ -1,5 +1,5 @@
 import { Add } from "@mui/icons-material";
-import HailIcon from "@mui/icons-material/Hail";
+
 import {
   Button,
   CircularProgress,
@@ -10,10 +10,13 @@ import {
 import { Link } from "react-router-dom";
 import EmployeesTable from "../components/tables/employees-table";
 import useEmployees from "../hooks/useEmployees";
-import BackButton from "../../../components/backbutton";
+import { useState } from "react";
 
 export default function EmployeesPage() {
-  const { isPending, data } = useEmployees();
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState("");
+  const { isPending, data } = useEmployees(page, limit, search);
 
   if (isPending) {
     return (
@@ -32,30 +35,30 @@ export default function EmployeesPage() {
     <Paper
       component="section"
       variant="outlined"
-      sx={ {
+      sx={{
         p: 3,
-      } }
+      }}
     >
-      <Typography textAlign={ "center" } fontSize={ 20 } fontWeight={ 500 }>Total Employee List</Typography>
-      <Stack alignItems={ "flex-end" }>
+      {/* <Stack alignItems={ "flex-end" }>
         <BackButton />
-      </Stack>
-      <Stack alignItems="flex-start" pb={ 2 }>
+        </Stack> */}
+      <Stack direction="row" alignItems="center" justifyContent="space-between" pb={2}>
+        <Typography textAlign={"left"} fontSize={20} fontWeight={500}>Total Employee List</Typography>
         <Button
           // variant="contained"
-          startIcon={ <Add /> }
-          component={ Link }
+          startIcon={<Add />}
+          component={Link}
           to="register"
         >
           Add Employee
         </Button>
       </Stack>
-      { data?.employeeList && data?.employeeList.length === 0 && (
+      {/* {data?.employeeList && data?.employeeList.length === 0 && (
         <Stack
           alignItems="center"
           justifyContent="center"
-          gap={ 2 }
-          py={ 6 }
+          gap={2}
+          py={6}
           height="80vh"
         >
           <HailIcon fontSize="large" color="disabled" />
@@ -63,13 +66,22 @@ export default function EmployeesPage() {
             No Employees Found
           </Typography>
         </Stack>
-      ) }
+      )} */}
 
-      { isPending ? (
+      {isPending ? (
         <p>Loading...</p>
       ) : (
-        <EmployeesTable data={ data?.employeeList! } />
-      ) }
+        <EmployeesTable 
+          data={data?.employeeList!} 
+          total={data?.total}
+          page={page}
+          setPage={setPage}
+          limit={limit}
+          setLimit={setLimit}
+          search={search}
+          setSearch={setSearch}
+        />
+      )}
     </Paper>
   );
 }
