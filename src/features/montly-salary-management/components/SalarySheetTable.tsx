@@ -20,6 +20,7 @@ import { generateSalarySlip } from "../utils/generateSalarySlip";
 import { useSalarySlip } from "../hooks/useGetSalaryFile";
 import toast from "react-hot-toast";
 import { getSalaryEditPermissions } from "../utils/salaryEditPermissions";
+import { getStepLabel } from "../utils/stepTrack";
 
 export interface SalarySheetData {
     employeeId: number;
@@ -302,6 +303,21 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 textTransform: "uppercase",
                                 letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
+                                zIndex: 11,
+                                bgcolor: "#f5f5f5",
+                                textAlign: "center",
+                                minWidth: 110,
+                            }}
+                        >
+                            Step
+                        </TableCell>
+                        <TableCell
+                            sx={{
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                border: "1px solid #ddd",
                                 userSelect: "none",
                                 // position: "sticky",
                                 // left: 120,
@@ -525,7 +541,18 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                         const canEditCommentThisRow = isEditable;
 
                         return (
-                            <TableRow key={rowId} hover>
+                            <TableRow
+                                key={rowId}
+                                hover
+                                sx={
+                                    isRowCurrentlyHeld
+                                        ? {
+                                            "& td": { backgroundColor: "#eeeeee !important" },
+                                            "& .MuiOutlinedInput-root": { backgroundColor: "#eeeeee !important" },
+                                        }
+                                        : undefined
+                                }
+                            >
                                 <TableCell
                                     sx={{
                                         border: "1px solid #ddd",
@@ -553,6 +580,18 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                     ) : (
                                         <ReportProblemIcon fontSize="small" sx={{ color: 'warning.main' }} />
                                     )}
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        border: "1px solid #ddd",
+                                        bgcolor: "white",
+                                        zIndex: 11,
+                                        textAlign: "center",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 500,
+                                    }}
+                                >
+                                    {getStepLabel(row.stepTrack ?? null)}
                                 </TableCell>
                                 <TableCell
                                     sx={{

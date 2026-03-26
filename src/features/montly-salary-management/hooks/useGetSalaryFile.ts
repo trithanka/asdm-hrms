@@ -50,9 +50,15 @@ export const useGenerateSalary = () => {
         mutationFn: (payload: GenerateSalaryPayload) =>
             salaryFileApi.generateSalary(payload),
         onSuccess: () => {
-            // Invalidate and refetch employee list
             queryClient.invalidateQueries({ queryKey: ["employee-list"] });
         },
+    });
+};
+
+export const useSaveEmployeeData = () => {
+    return useMutation({
+        mutationFn: (payload: import("../../../api/salary/salary-file-api").SaveEmployeeDataPayload) =>
+            salaryFileApi.saveEmployeeData(payload),
     });
 };
 
@@ -93,3 +99,9 @@ export const useSalarySlip = () => {
     });
 };
 
+export const useSalaryTrackTimeline = () => {
+    return useMutation({
+        mutationFn: (payload: import("../../../api/salary/salary-file-api").SalaryTrackTimelinePayload) =>
+            salaryFileApi.getSalaryTrackTimeline(payload),
+    });
+};

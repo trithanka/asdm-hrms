@@ -53,10 +53,38 @@ const months = [
     { value: 12, label: "December" },
 ];
 
+function pickDefaultFyId(fyMaster: any[]): number | null {
+    const enabled = fyMaster.filter((fy) => fy.bEnabled === 1);
+    if (!enabled.length) return null;
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const fyStartYear = currentMonth < 4 ? currentYear - 1 : currentYear;
+
+    const getScore = (v: number) => (v < 4 ? v + 12 : v);
+    const monthScore = getScore(currentMonth);
+
+    const sameFy = enabled.filter((fy) => Number(fy.vsFy) === fyStartYear);
+    if (sameFy.length > 0) {
+        const match =
+            [...sameFy]
+                .filter((fy) => getScore(fy.iStartMonth) <= monthScore)
+                .sort((a, b) => getScore(b.iStartMonth) - getScore(a.iStartMonth))[0] ??
+            [...sameFy].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0];
+        return match?.pklSalaryFinancialYearId ?? null;
+    }
+
+    return (
+        [...enabled].sort((a, b) => b.pklSalaryFinancialYearId - a.pklSalaryFinancialYearId)[0]
+            ?.pklSalaryFinancialYearId ?? null
+    );
+}
+
 export default function BreakingMasterPage() {
     const { data: structureData } = useSalaryStructureTypes();
     const [selectedStructType, setSelectedStructType] = useState<string>('ASDM_NESC');
-    const [selectedFyId, setSelectedFyId] = useState<string>('all');
+    const [selectedFyId, setSelectedFyId] = useState<string>('');
 
     const { data: listData, isLoading: isLoadingList, error: listError } = useSalaryBreakingMaster(selectedStructType, selectedFyId);
     // Removed fetchFilters dependency as we use designationCategory from structureData
@@ -158,21 +186,11 @@ export default function BreakingMasterPage() {
         return formatted;
     }, [structureData, selectedFyId]);
 
-    // Effect to handle the auto-selection separately to avoid state-update-during-render
+    // Auto-select current FY (same behavior as Employee Wise Payroll)
     useEffect(() => {
-        if (structureData?.data?.fyMaster && structureData.data.fyMaster.length > 0 && selectedFyId === 'all') {
-            const sortedMaster = [...structureData.data.fyMaster].sort((a: any, b: any) => {
-                const yearA = parseInt(a.vsFy);
-                const yearB = parseInt(b.vsFy);
-                if (yearA !== yearB) return yearB - yearA;
-
-                const getMonthScore = (m: number) => (m < 4 ? m + 12 : m);
-                return getMonthScore(b.iStartMonth) - getMonthScore(a.iStartMonth);
-            });
-
-            if (sortedMaster.length > 0) {
-                setSelectedFyId(sortedMaster[0].pklSalaryFinancialYearId.toString());
-            }
+        if (structureData?.data?.fyMaster && selectedFyId === '') {
+            const id = pickDefaultFyId(structureData.data.fyMaster);
+            if (id !== null) setSelectedFyId(id.toString());
         }
     }, [structureData, selectedFyId]);
 
@@ -185,10 +203,8 @@ export default function BreakingMasterPage() {
 
     const filteredDesignationCategories = useMemo(() => {
         if (!structureData?.data?.designationCategory) return [];
-
-        const structId = structTypeMapping[selectedStructType];
-        return structureData.data.designationCategory.filter((cat: any) => cat.fklSlarayStructureTypeId === structId);
-    }, [structureData, selectedStructType]);
+        return structureData.data.designationCategory;
+    }, [structureData]);
 
 
     const handleOpen = (item?: any) => {
@@ -230,7 +246,7 @@ export default function BreakingMasterPage() {
                 dDeductionOfIncomeTax: '',
                 dOtherDeduction: '',
                 bEnabled: 1,
-                fklSalaryFinancialYearId: '',
+                fklSalaryFinancialYearId: selectedFyId !== 'all' ? selectedFyId : '',
             });
         }
         setOpen(true);
@@ -249,6 +265,8 @@ export default function BreakingMasterPage() {
 
             if (editingId) {
                 const payload: any = { ...formData, pklSalaryBreakingAsdmNescId: editingId, fklSalaryStructureType };
+                delete payload.iWorkingDays;
+                delete payload.dArrear;
                 Object.keys(payload).forEach(key => {
                     if (payload[key] === '') {
                         delete payload[key];
@@ -263,18 +281,13 @@ export default function BreakingMasterPage() {
                     {
                         fklSalaryStructureType,
                         designationCategoryId: Number(formData.fklDesignationCategoryId),
-                        basicPay: toNumber(formData.dBasicPay),
-                        workingDays: toNumber(formData.iWorkingDays),
                         incrementPercentage: toNumber(formData.dIncrementParcentage),
                         houseRentPercentage: toNumber(formData.dHouseRentParcentage),
                         mobileInternet: toNumber(formData.dMobileInternet),
                         newspaperMagazine: toNumber(formData.dNewsPaperMagazine),
                         conveyanceAllowance: toNumber(formData.dConveyanceAllowances),
                         educationAllowance: toNumber(formData.dEducationAllowance),
-                        arrear: toNumber(formData.dArrear),
                         professionalTax: toNumber(formData.dDeductionOfPtax),
-                        incomeTax: toNumber(formData.dDeductionOfIncomeTax),
-                        otherDeduction: toNumber(formData.dOtherDeduction),
                         fklSalaryFinancialYearId: Number(formData.fklSalaryFinancialYearId),
                     }
                 ];
@@ -344,10 +357,8 @@ export default function BreakingMasterPage() {
                                 <TableCell sx={{ fontWeight: 600 }}>Designation Category</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Financial Year</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Start Month</TableCell>
-                                {/* <TableCell sx={{ fontWeight: 600 }}>Basic Pay</TableCell> */}
-                                <TableCell sx={{ fontWeight: 600 }}>Days</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                                {/* <TableCell sx={{ fontWeight: 600 }}>Working Days</TableCell> */}
+                                <TableCell sx={{ fontWeight: 600 }} align="center">Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -368,21 +379,20 @@ export default function BreakingMasterPage() {
                                             months.find(m => m.value === structureData?.data?.fyMaster?.find((fy: any) => fy.pklSalaryFinancialYearId === item.fklSalaryFinancialYearId)?.iStartMonth)?.label || 'N/A'
                                         )}
                                     </TableCell>
-                                    <TableCell>{item.dBasicPay}</TableCell>
-                                    <TableCell>{item.iWorkingDays}</TableCell>
-                                    <TableCell>
-                                        <Switch
-                                            checked={item.bEnabled === 1}
-                                            onChange={() => toggleMutation.mutate(item.pklSalaryBreakingAsdmNescId)}
-                                            size="small"
-                                        />
-                                    </TableCell>
-                                    <TableCell align="right">
-                                        <Tooltip title="View/Edit Details">
-                                            <IconButton onClick={() => handleOpen(item)} color="secondary" size="small">
-                                                <Info fontSize="small" />
-                                            </IconButton>
-                                        </Tooltip>
+                                    {/* <TableCell>{item.iWorkingDays}</TableCell> */}
+                                    <TableCell align="center">
+                                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Switch
+                                                checked={item.bEnabled === 1}
+                                                onChange={() => toggleMutation.mutate(item.pklSalaryBreakingAsdmNescId)}
+                                                size="small"
+                                            />
+                                            <Tooltip title="View/Edit Details">
+                                                <IconButton onClick={() => handleOpen(item)} color="secondary" size="small">
+                                                    <Info fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Box>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -463,9 +473,9 @@ export default function BreakingMasterPage() {
                                 InputProps={{ readOnly: !isEditing }}
                             />
                         </Grid> */}
-                        <Grid item xs={12} sm={4}>
+                        {/* <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Working Days" type="number" value={formData.iWorkingDays} onChange={(e) => setFormData({ ...formData, iWorkingDays: e.target.value })} InputProps={{ readOnly: !isEditing }} />
-                        </Grid>
+                        </Grid> */}
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Increment %" type="number" value={formData.dIncrementParcentage} onChange={(e) => setFormData({ ...formData, dIncrementParcentage: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>
@@ -484,9 +494,9 @@ export default function BreakingMasterPage() {
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Education" type="number" value={formData.dEducationAllowance} onChange={(e) => setFormData({ ...formData, dEducationAllowance: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        {/* <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="Arrear" type="number" value={formData.dArrear} onChange={(e) => setFormData({ ...formData, dArrear: e.target.value })} InputProps={{ readOnly: !isEditing }} />
-                        </Grid>
+                        </Grid> */}
                         <Grid item xs={12} sm={4}>
                             <TextField fullWidth label="P-Tax" type="number" value={formData.dDeductionOfPtax} onChange={(e) => setFormData({ ...formData, dDeductionOfPtax: e.target.value })} InputProps={{ readOnly: !isEditing }} />
                         </Grid>

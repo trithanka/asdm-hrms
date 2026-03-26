@@ -53,6 +53,11 @@ export interface DesignationCategory {
     dtModifiedDate: string;
 }
 
+export interface DepartmentMaster {
+    internalDepartmentId: number;
+    internalDepartmentName: string;
+}
+
 export interface SalaryStructureTypesResponse {
     status: string;
     message: string;
@@ -60,6 +65,7 @@ export interface SalaryStructureTypesResponse {
         salaryStructureTypes: SalaryStructureType[];
         fyMaster: FyMaster[];
         designationCategory: DesignationCategory[];
+        department?: DepartmentMaster[];
     };
     statusCode: number;
 }
@@ -130,6 +136,15 @@ export interface GenerateEmployeeData {
     incomeTax: number;
     otherDeduction: number;
     isHold: number;
+    comment?: string;
+}
+
+export interface SaveEmployeeDataPayload {
+    salaryStructureType: number | string;
+    generateMonth: string;
+    generateYear: string;
+    generateEmployees: GenerateEmployeeData[];
+    isSave: number;
 }
 
 export interface GenerateSalaryPayload {
@@ -160,18 +175,13 @@ export interface GenerateSalaryResponse {
 
 export interface AddSalaryBreakingPayloadItem {
     designationCategoryId: number;
-    basicPay: number;
-    workingDays: number;
     incrementPercentage: number;
     houseRentPercentage: number;
     mobileInternet: number;
     newspaperMagazine: number;
     conveyanceAllowance: number;
     educationAllowance: number;
-    arrear: number;
     professionalTax: number;
-    incomeTax: number;
-    otherDeduction: number;
     fklSalaryFinancialYearId: number;
 }
 
@@ -206,6 +216,13 @@ export const salaryFileApi = {
     // Generate salary for employees
     generateSalary: async (payload: GenerateSalaryPayload): Promise<GenerateSalaryResponse> => {
         const response = await API.post("/SalaryGenerate/generate-salary", payload);
+        return response.data;
+    },
+
+    // Save (draft) employee salary data without generating
+    saveEmployeeData: async (payload: SaveEmployeeDataPayload): Promise<any> => {
+        // As requested by user, the save flag `isSaved=true` is sent to the existing employee-list API
+        const response = await API.post("/SalaryGenerate/employee-list", payload);
         return response.data;
     },
 
@@ -274,7 +291,19 @@ export const salaryFileApi = {
         const response = await API.post("/SalaryGenerate/fy-salary-master", {});
         return response.data;
     },
+
+    // Get salary track timeline
+    getSalaryTrackTimeline: async (payload: SalaryTrackTimelinePayload): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/salary-track-timeline", payload);
+        return response.data;
+    },
 };
+
+export interface SalaryTrackTimelinePayload {
+    salaryStructureType: number;
+    generateMonth: string;
+    generateYear: string;
+}
 
 export interface SalarySlipPayload {
     employeeId: string;
