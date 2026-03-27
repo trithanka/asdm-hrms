@@ -113,7 +113,7 @@ export const SalaryTransfer = () => {
             </Box>
 
             {/* ── Table ───────────────────────────────────────────────────── */}
-            <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
+            <Box sx={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
                 <SalaryTableRenderer
                     selectedStructureType={selectedStructureType}
                     isLoadingEmployees={isLoadingEmployees}

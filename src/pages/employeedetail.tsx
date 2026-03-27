@@ -293,9 +293,6 @@ export default function EmployeeDetail() {
                   sx={ { color: "gray" } }
                 >
                   Email
-                  <Typography variant="caption" fontWeight={ 500 } gutterBottom>
-                    <span style={ { color: "red" } }>*</span>
-                  </Typography>
                 </Typography>
 
                 <TextField

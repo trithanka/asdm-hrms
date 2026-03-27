@@ -130,12 +130,15 @@ export interface EmployeeListResponse {
 export interface GenerateEmployeeData {
     fullName: string;
     employeeId: number;
-    attendance: number;
-    lwp: number;
-    arear: number;
-    incomeTax: number;
-    otherDeduction: number;
+    attendance: number | "" | null;
+    workingDays?: number | null;
+    lwp: number | null;
+    arear: number | null;
+    incomeTax: number | null;
+    otherDeduction: number | null;
+    basicPay?: number | null;
     isHold: number;
+    stepTrack?: number;
     comment?: string;
 }
 
@@ -143,6 +146,9 @@ export interface SaveEmployeeDataPayload {
     salaryStructureType: number | string;
     generateMonth: string;
     generateYear: string;
+    trackStep?: number;
+    comment?: string;
+    iWorkingDays?: number;
     generateEmployees: GenerateEmployeeData[];
     isSave: number;
 }
@@ -221,8 +227,7 @@ export const salaryFileApi = {
 
     // Save (draft) employee salary data without generating
     saveEmployeeData: async (payload: SaveEmployeeDataPayload): Promise<any> => {
-        // As requested by user, the save flag `isSaved=true` is sent to the existing employee-list API
-        const response = await API.post("/SalaryGenerate/employee-list", payload);
+        const response = await API.post("/SalaryGenerate/generate-salary", payload);
         return response.data;
     },
 

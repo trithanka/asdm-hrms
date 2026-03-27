@@ -16,6 +16,7 @@ import { getRoleIdFromToken } from "../../../utils/auth";
 import { SALARY_MONTHS } from "../constants/salaryConstants";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFilters } from "../../../api/employee/employee-api";
+import { getDaysInSelectedMonth } from "../utils/workingDays";
 
 /** Resolves the current user's role ID from JWT (preferred) or auth-kit state. */
 function resolveRoleId(authUser: () => any): number {
@@ -241,15 +242,20 @@ export function useSalaryTransfer() {
         if (!data.length) { toast.error("No data to save"); return; }
         if (!selectedYear) { toast.error("Please select a financial year"); return; }
 
+        const payloadStepTrack = currentStepTrack ?? 1;
+        const payloadWorkingDays = data[0]?.workingDays ?? getDaysInSelectedMonth(selectedMonth, new Date().getFullYear());
+
         const saveEmployees = data.map((emp: any) => ({
             fullName: emp.fullName ?? "",
             employeeId: emp.employeeId,
-            attendance: emp.attendance ?? null,
+            attendance: emp.attendance ?? "",
             lwp: emp.lwpDays ?? null,
             arear: emp.arrear ?? null,
             incomeTax: emp.deductionIncomeTax ?? null,
             otherDeduction: emp.ddvancesOtherDeductions ?? null,
+            basicPay: emp.basicPay ?? null,
             isHold: emp.hold ? 1 : (emp.isHold ?? 0),
+            stepTrack: emp.stepTrack ?? 1,
             comment: emp.employeeCommentBeforeAck ?? "",
         }));
 
@@ -260,6 +266,9 @@ export function useSalaryTransfer() {
                 )?.id ?? selectedStructureType,
             generateMonth: selectedMonth,
             generateYear: selectedYear.toString(),
+            trackStep: payloadStepTrack,
+            comment: "process Done",
+            iWorkingDays: payloadWorkingDays,
             generateEmployees: saveEmployees,
             isSave: 1,
         };
@@ -270,7 +279,7 @@ export function useSalaryTransfer() {
         } catch (error: any) {
             toast.error(error?.response?.data?.message || "Failed to save records");
         }
-    }, [getEmployeeData, selectedYear, selectedMonth, selectedStructureType, structureTypesData, saveEmployeeDataMutation]);
+    }, [getEmployeeData, selectedYear, selectedMonth, selectedStructureType, structureTypesData, saveEmployeeDataMutation, currentStepTrack]);
 
     // ── Timeline handler ──────────────────────────────────────────────────────
     const handleTimeline = useCallback(() => {

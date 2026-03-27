@@ -30,7 +30,7 @@ export function SalaryActionBar({
     onSubmit,
 }: SalaryActionBarProps) {
     const allGenerated = employeeList.every((emp: any) => emp.salaryStatus === "generated");
-    
+
     // Get conditionally rendered actions
     const actions = getPayrollActions(employeeList, resolvedRoleId);
 
@@ -111,7 +111,7 @@ export function SalaryActionBar({
                     Revert to Finance
                 </Button>
             )}
-            
+
             {actions.showForwardToHR && (
                 <Button variant="outlined" color="primary" size="small" sx={{ textTransform: "none" }}>
                     Forward to HR

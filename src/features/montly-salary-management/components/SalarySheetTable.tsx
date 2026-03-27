@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
     Paper,
     Table,
@@ -21,6 +21,7 @@ import { useSalarySlip } from "../hooks/useGetSalaryFile";
 import toast from "react-hot-toast";
 import { getSalaryEditPermissions } from "../utils/salaryEditPermissions";
 import { getStepLabel } from "../utils/stepTrack";
+import { getDaysInSelectedMonth } from "../utils/workingDays";
 
 export interface SalarySheetData {
     employeeId: number;
@@ -68,20 +69,40 @@ interface SalarySheetTableProps {
 export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", roleId = 0, stepTrack = null }: SalarySheetTableProps) => {
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
     const [generatingId, setGeneratingId] = useState<number | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [viewportHeight, setViewportHeight] = useState(700);
 
     const { isEditable, isOtherDeductionEditable } = getSalaryEditPermissions(roleId, stepTrack);
+    const workingDaysForMonth = getDaysInSelectedMonth(month, year);
+    const ROW_HEIGHT = 56;
+    const OVERSCAN_ROWS = 8;
 
     const salarySlipMutation = useSalarySlip();
 
-    const recalculateRow = (row: SalarySheetData) => {
+    const handleContainerScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        setScrollTop(e.currentTarget.scrollTop);
+    }, []);
+
+    useEffect(() => {
+        const updateViewport = () => {
+            if (containerRef.current) {
+                setViewportHeight(containerRef.current.clientHeight);
+            }
+        };
+
+        updateViewport();
+        window.addEventListener("resize", updateViewport);
+        return () => window.removeEventListener("resize", updateViewport);
+    }, []);
+
+    const recalculateRow = useCallback((row: SalarySheetData, originalRowFromSource?: SalarySheetData) => {
         // If already generated, return as is (do not recalculate)
         if (row.salaryStatus === "generated") return row;
 
-        // Find original values from the 'data' prop (API data) as base
-        const originalRow = data.find(r => (r.pklSalaryBreakingAsdmNescEmployeeWiseId || r.employeeId) === (row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId));
-        if (!originalRow) return row;
+        const originalRow = originalRowFromSource ?? row;
 
-        const workingDays = Number((originalRow as any).workingDays || row.workingDays || 30);
+        const workingDays = workingDaysForMonth;
         const attendance = Number(row.attendance ?? 0);
 
         // Base monthly values, with row edits taking priority over original API values.
@@ -120,6 +141,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
 
         return {
             ...row,
+            workingDays,
             basicPay: baseBasicPay,
             incrementPercentValueFy,
             fullSalary,
@@ -133,80 +155,71 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
             totalDeduction,
             netAmount
         };
-    };
+    }, [workingDaysForMonth]);
 
     // Update table data when month/year changes or data arrives
     useEffect(() => {
         if (data.length > 0) {
-            const calculatedData = data.map(row => ({
-                ...recalculateRow(row),
+            const calculatedData = data.map((row) => ({
+                ...recalculateRow(row, row),
                 employeeCommentBeforeAck: row.employeeCommentBeforeAck ?? "",
             }));
             setTableData(calculatedData);
         }
-    }, [data, month, year]);
+    }, [data, recalculateRow]);
+
+    // Avoid parent-level rerender on each keystroke; sync local edits in short batches.
+    useEffect(() => {
+        if (!onDataChange) return;
+        const timer = window.setTimeout(() => {
+            onDataChange(tableData);
+        }, 120);
+        return () => window.clearTimeout(timer);
+    }, [tableData, onDataChange]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-        id: number | null,
+        rowIndex: number,
         field: keyof SalarySheetData
     ) => {
         const { value } = e.target;
-        const updatedData = tableData.map((row, idx) => {
-            const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
-            const matchId = id ?? rowId;
+        const isNumericField =
+            field === "attendance" ||
+            field === "lwpDays" ||
+            field === "basicPay" ||
+            field === "arrear" ||
+            field === "deductionOfPtax" ||
+            field === "deductionIncomeTax" ||
+            field === "ddvancesOtherDeductions";
+        const parsedValue =
+            isNumericField
+                ? (value === "" || value === null || value === undefined ? null : (isNaN(parseFloat(value)) ? null : parseFloat(value)))
+                : value;
 
-            if (rowId === matchId || (id === null && idx === tableData.indexOf(row))) {
-                return {
+        setTableData((prev) =>
+            prev.map((row, idx) => {
+                if (idx !== rowIndex) return row;
+
+                const updatedRow = {
                     ...row,
-                    [field]:
-                        field === "attendance" ||
-                            field === "lwpDays" ||
-                            field === "basicPay" ||
-                            field === "arrear" ||
-                            field === "deductionOfPtax" ||
-                            field === "deductionIncomeTax" ||
-                            field === "ddvancesOtherDeductions"
-                            ? (value === "" || value === null || value === undefined ? null : (isNaN(parseFloat(value)) ? null : parseFloat(value)))
-                            : value,
-                };
-            }
-            return row;
-        });
-
-        // Apply calculations to the changed row
-        const recalculatedData = updatedData.map((row) => {
-            const rowIdVal = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
-            const matchIdVal = id ?? rowIdVal;
-            if (rowIdVal === matchIdVal) {
-                return recalculateRow(row);
-            }
-            return row;
-        });
-
-        setTableData(recalculatedData);
-        if (onDataChange) {
-            onDataChange(recalculatedData);
-        }
+                    [field]: parsedValue,
+                } as SalarySheetData;
+                return recalculateRow(updatedRow, data[idx]);
+            })
+        );
     };
 
-    const handleHoldToggle = (id: number | null, checked: boolean) => {
-        const updatedData = tableData.map((row) => {
-            const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId ?? row.employeeId;
-            const matchId = id ?? rowId;
-            if (rowId === matchId) {
+    const handleHoldToggle = (rowIndex: number, checked: boolean) => {
+        setTableData((prev) =>
+            prev.map((row, idx) => {
+                if (idx !== rowIndex) return row;
+
                 return {
                     ...row,
                     hold: checked,
                 };
-            }
-            return row;
-        });
-
-        setTableData(updatedData);
-        if (onDataChange) {
-            onDataChange(updatedData);
-        }
+            })
+        );
     };
 
 
@@ -248,12 +261,31 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
         }
     };
 
+    const totalRows = tableData.length;
+    const visibleRange = useMemo(() => {
+        const visibleCount = Math.max(1, Math.ceil(viewportHeight / ROW_HEIGHT));
+        const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS);
+        const end = Math.min(totalRows, start + visibleCount + OVERSCAN_ROWS * 2);
+        return { start, end };
+    }, [scrollTop, viewportHeight, totalRows]);
+    const visibleRows = useMemo(
+        () => tableData.slice(visibleRange.start, visibleRange.end),
+        [tableData, visibleRange.start, visibleRange.end]
+    );
+    const topSpacerHeight = visibleRange.start * ROW_HEIGHT;
+    const bottomSpacerHeight = Math.max(0, (totalRows - visibleRange.end) * ROW_HEIGHT);
+
     return (
         <TableContainer
             component={Paper}
+            ref={containerRef}
+            onScroll={handleContainerScroll}
             sx={{
                 overflowX: "auto",
                 overflowY: "auto",
+                height: "100%",
+                maxHeight: "100%",
+                minHeight: 0,
                 width: "100%",
                 maxWidth: "100%",
                 position: "relative"
@@ -345,6 +377,9 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                             }}
                         >
                             Employee
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#f5f5f5", userSelect: "none", textAlign: "center", minWidth: 95 }}>
+                            Working Days
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: isEditable ? "#e3f2fd" : "#e0e0e0", color: isEditable ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "center", minWidth: 100, opacity: isEditable ? 1 : 0.7 }}>
                             Attendance (in days)
@@ -525,7 +560,13 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {tableData.map((row, index) => {
+                    {topSpacerHeight > 0 && (
+                        <TableRow>
+                            <TableCell colSpan={100} sx={{ p: 0, border: 0, height: `${topSpacerHeight}px` }} />
+                        </TableRow>
+                    )}
+                    {visibleRows.map((row, index) => {
+                        const absoluteIndex = visibleRange.start + index;
                         const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
 
                         // Combined lock: check if row is currently held (instant UI or API value) 
@@ -542,7 +583,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
 
                         return (
                             <TableRow
-                                key={rowId}
+                                key={`${rowId}-${absoluteIndex}`}
                                 hover
                                 sx={
                                     isRowCurrentlyHeld
@@ -563,7 +604,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         textAlign: "center"
                                     }}
                                 >
-                                    {index + 1}
+                                    {absoluteIndex + 1}
                                 </TableCell>
                                 <TableCell
                                     sx={{
@@ -605,7 +646,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 >
                                     <Checkbox
                                         checked={Boolean(row.hold)}
-                                        onChange={(e) => handleHoldToggle(rowId, e.target.checked)}
+                                        onChange={(e) => handleHoldToggle(absoluteIndex, e.target.checked)}
                                         size="small"
                                     />
                                 </TableCell>
@@ -630,12 +671,15 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         {row.designationCategory}
                                     </div> */}
                                 </TableCell>
+                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", fontWeight: 600 }}>
+                                    {workingDaysForMonth}
+                                </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
                                     <TextField
                                         size="small"
                                         type="number"
                                         value={row.attendance ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "attendance")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "attendance")}
                                         inputProps={{
                                             min: 0,
                                             readOnly: !canEditInputsThisRow,
@@ -654,7 +698,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         size="small"
                                         type="number"
                                         value={row.lwpDays ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "lwpDays")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "lwpDays")}
                                         inputProps={{
                                             min: 0,
                                             readOnly: !canEditInputsThisRow,
@@ -673,7 +717,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         size="small"
                                         type="number"
                                         value={row.basicPay ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "basicPay")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "basicPay")}
                                         inputProps={{
                                             min: 0,
                                             step: "0.01",
@@ -720,7 +764,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         size="small"
                                         type="number"
                                         value={row.arrear ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "arrear")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "arrear")}
                                         inputProps={{
                                             min: 0,
                                             readOnly: !canEditInputsThisRow,
@@ -759,7 +803,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         size="small"
                                         type="number"
                                         value={row.deductionIncomeTax ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "deductionIncomeTax")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "deductionIncomeTax")}
                                         inputProps={{
                                             min: 0,
                                             readOnly: true,
@@ -780,7 +824,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         size="small"
                                         type="number"
                                         value={row.ddvancesOtherDeductions ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "ddvancesOtherDeductions")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "ddvancesOtherDeductions")}
                                         inputProps={{
                                             min: 0,
                                             readOnly: !canEditOtherDedThisRow,
@@ -814,7 +858,9 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         color: "#00695c",
                                     }}
                                 >
-                                    {formatValue(row.netAmount)}
+                                    {row.netAmount !== null
+                                        ? formatValue(Math.round(row.netAmount))
+                                        : ""}
                                 </TableCell>
                                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5, backgroundColor: canEditCommentThisRow ? "transparent" : "#f5f5f5" }}>
                                     <TextField
@@ -822,7 +868,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                         multiline
                                         minRows={1}
                                         value={row.employeeCommentBeforeAck ?? ""}
-                                        onChange={(e) => handleChange(e, rowId, "employeeCommentBeforeAck")}
+                                        onChange={(e) => handleChange(e, absoluteIndex, "employeeCommentBeforeAck")}
                                         placeholder="Enter comment"
                                         fullWidth
                                         inputProps={{
@@ -861,6 +907,11 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                             </TableRow>
                         );
                     })}
+                    {bottomSpacerHeight > 0 && (
+                        <TableRow>
+                            <TableCell colSpan={100} sx={{ p: 0, border: 0, height: `${bottomSpacerHeight}px` }} />
+                        </TableRow>
+                    )}
                 </TableBody>
             </Table >
         </TableContainer >

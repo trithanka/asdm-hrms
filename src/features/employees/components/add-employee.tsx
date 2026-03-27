@@ -245,7 +245,6 @@ export default function AddEmployee() {
                   label="Email"
                   name="email"
                   placeholder="Email"
-                  required
                 />
               </Grid>
 
@@ -327,7 +326,6 @@ export default function AddEmployee() {
                   control={ control }
                   label="Designation"
                   name="designation"
-                  required
                   options={ designations! }
                 />
                 { errors.designation?.message && (
@@ -339,7 +337,6 @@ export default function AddEmployee() {
                 <Select
                   control={ control }
                   label="Department"
-                  required
                   name="department"
                   options={ departments! }
                 />
@@ -355,7 +352,6 @@ export default function AddEmployee() {
                   name="dateOfJoining"
                   label="Joining Date"
                   placeholder="Joining Date"
-                  required
                   maxDate={ todayDate }
                 />
               </Grid>
@@ -364,7 +360,6 @@ export default function AddEmployee() {
                 <Select
                   control={ control }
                   label="Supervisor 1"
-                  required
                   name="supervisorId1"
                   options={ supervisor! }
                 />
@@ -385,7 +380,6 @@ export default function AddEmployee() {
                 <Select
                   control={ control }
                   label="Qualifications"
-                  required
                   name="qualification"
                   options={ qualifications! }
                 />
@@ -398,7 +392,6 @@ export default function AddEmployee() {
                 <Select
                   control={ control }
                   label="Current Working Location"
-                  required
                   name="locationId"
                   options={ current_working_location! }
                 />
@@ -414,7 +407,6 @@ export default function AddEmployee() {
                   name="currentLocationJoiningDate"
                   label="Current Location Joining Date"
                   placeholder="Current Location Joining Date"
-                  required
                   maxDate={ todayDate }
                 />
               </Grid>

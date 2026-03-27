@@ -25,7 +25,7 @@ export const addEmployeeFormSchema: yup.ObjectSchema<AddEmployeeFormValues> | an
         .max(10, "too long"),
       gender: yup.string().required("Gender is required"),
       dob: yup.string().required("Date of Birth is required"),
-      email: yup.string().email().required("Email is required"),
+      email: yup.string().email("Invalid email").notRequired(),
 
       uuid: yup.string().required("ID number is required"),
       idType: yup
@@ -64,12 +64,12 @@ export const addEmployeeFormSchema: yup.ObjectSchema<AddEmployeeFormValues> | an
       districtPermanent: yup.string(),
       pinPermanent: yup.number(),
 
-      designation: yup.string().required("Designation is required"),
-      dateOfJoining: yup.string().required("Date is required"),
+      designation: yup.string().notRequired(),
+      dateOfJoining: yup.string().notRequired(),
 
-      department: yup.string().required("Department is required"),
-      supervisorId1: yup.string().required("Supervisor is required"),
-      qualification: yup.string().required("Qualification is required"),
+      department: yup.string().notRequired(),
+      supervisorId1: yup.string().notRequired(),
+      qualification: yup.string().notRequired(),
 
       blood: yup.string().required("Blood group is required"),
       religion: yup.string().required("Religion is required"),
