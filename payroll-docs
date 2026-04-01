@@ -1,0 +1,51 @@
+mployee Payroll User Guide (Role-Based)
+
+1. Workflow Overview
+HR (98) -> Finance (36) -> HR (98) -> Generate Salary -> Enable Slip
+
+2. Who Can Do What
+Role 98 (HR)
+Main stage for editing: stepTrack = 1
+Final processing stage: stepTrack = 3
+Role 36 (Finance)
+Finance verification stage: stepTrack = 2
+3. Input Edit Rules (Table)
+HR (98)
+Editable rows: stepTrack = 1 (and null if present)
+Editable fields: Attendance, LWP, Basic Pay, Arrear, Comment, Other Deduction (as per row state)
+Not editable: Income Tax
+Locked rows: stepTrack = 2/3/4 (or held rows)
+Finance (36)
+Editable rows: stepTrack = 2
+Editable fields: Income Tax, Adv/Oth Ded
+Not editable: General HR fields (attendance/basic/etc.)
+Locked rows: stepTrack != 2 (or held rows)
+4. Hold Checkbox Rules
+Disabled for Finance role generally
+Disabled for HR when row is at stepTrack = 3
+Disabled on locked rows
+Enabled for HR on editable step-1 rows
+5. Button Behavior (Visible vs Enabled)
+Buttons are shown role-wise, but become disabled when conditions are not met.
+
+HR (98) buttons
+Save -> enabled when at least one active row is at step null/1
+To Finance -> enabled when at least one active row is at step null/1
+Back Finance -> enabled when at least one active row is at step 3
+Generate -> enabled when at least one active row is at step 3 and not already fully generated
+Enable Slip -> enabled only if at least one row has:
+stepTrack = 4, and
+salaryStatus != "generated"
+Finance (36) buttons
+To HR -> enabled when at least one active row is at step 2
+Back HR -> enabled when at least one active row is at step 2
+6. Generate & Slip Notes
+Generate confirmation count includes only pending employees (already generated rows are excluded).
+Step column shows:
+normal step badge
+extra Slip Enabled badge when applicable (generated row condition in final step UI).
+7. APIs Used in Flow (User-facing actions)
+Forward/Save/Generate path: /SalaryGenerate/generate-salary
+Send back actions: /SalaryGenerate/salary-send-back
+Enable Slip: /SalaryGenerate/salary-slip-generate
+Single slip download action is available from Action column.
