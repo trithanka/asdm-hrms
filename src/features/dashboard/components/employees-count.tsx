@@ -27,8 +27,11 @@ export default function EmployeesCount() {
 
   return (
     <>
-      <Paper variant="outlined" sx={ { p: 3, height: "100%" } }>
-        <Stack justifyContent="space-between" flexDirection="row" pb={ 1 }>
+      <Paper
+        variant="outlined"
+        sx={ { p: 3, width: "100%", height: "100%", display: "flex", flexDirection: "column", minHeight: 0 } }
+      >
+        <Stack justifyContent="space-between" flexDirection="row" pb={ 1 } sx={{ flexShrink: 0 }}>
           <Typography variant="subtitle2">Employees</Typography>
           <ToggleButtonGroup
             color="primary"
@@ -50,10 +53,11 @@ export default function EmployeesCount() {
             </ToggleButton>
           </ToggleButtonGroup>
         </Stack>
-        <List sx={ { overflow: "auto", height: 400 } }>
+        <List sx={ { overflow: "auto", flex: 1, minHeight: 0 } }>
           { data &&
             data[type]?.map((employee: any) => (
               <ListItem
+                key={`${type}-${employee.departmentId ?? employee.department ?? employee.designationName ?? "row"}`}
                 secondaryAction={
                   <Typography fontWeight={ 500 } variant="h6">
                     <Link

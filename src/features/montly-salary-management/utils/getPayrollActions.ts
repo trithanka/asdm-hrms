@@ -38,26 +38,26 @@ export function getPayrollActions(employees: PayrollEmployee[], roleId: number):
 
     if (roleId === ROLE_IDS.HR) { // 98
         const hasPrepStep = activeEmployees.some(emp => emp.stepTrack === null || emp.stepTrack === 1);
-        const allAtGenStep = activeEmployees.every(emp => emp.stepTrack === 3);
-        const allAtCompleted = activeEmployees.every(emp => emp.stepTrack === 4);
+        const hasGenStep = activeEmployees.some(emp => emp.stepTrack === 3);
+        const hasCompleted = activeEmployees.some(emp => emp.stepTrack === 4);
 
         return {
             ...DEFAULT_ACTIONS,
             showForwardToFinance: hasPrepStep,
             showSaveAll: hasPrepStep,
-            showRevertToFinance: allAtGenStep,
-            showGenerateSalary: allAtGenStep,
-            showEnableSalarySlip: allAtCompleted,
+            showRevertToFinance: hasGenStep,
+            showGenerateSalary: hasGenStep,
+            showEnableSalarySlip: hasCompleted,
         };
     }
 
     if (roleId === ROLE_IDS.FINANCE) { // 36
-        const allAtFinanceStep = activeEmployees.every(emp => emp.stepTrack === 2);
+        const hasFinanceStep = activeEmployees.some(emp => emp.stepTrack === 2);
 
         return {
             ...DEFAULT_ACTIONS,
-            showForwardToHR: allAtFinanceStep,
-            showRevertToHR: allAtFinanceStep,
+            showForwardToHR: hasFinanceStep,
+            showRevertToHR: hasFinanceStep,
         };
     }
 

@@ -33,6 +33,9 @@ export interface IDashboardData {
   leaveRequestDecided: number;
   leaveRequestRejected: number;
   leaveRequestApproved: number;
+  rejectedCount: number | undefined;
+  approvedCount: number | undefined;
+
   genderWise: {
     gender: string;
     count: number;

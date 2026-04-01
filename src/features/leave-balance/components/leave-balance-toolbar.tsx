@@ -9,7 +9,6 @@ type LeaveBalanceToolbarProps = {
   globalYearEnd: string;
   designationOptions: MasterDesignationItem[];
   yearOptions: MasterYearItem[];
-  allRowsSaved: boolean;
   isSubmitting: boolean;
   isLoading: boolean;
   isDownloading: boolean;
@@ -18,7 +17,6 @@ type LeaveBalanceToolbarProps = {
   onGlobalYearEndChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onSaveAll: () => void;
   onDownloadExcel: () => void;
-  onSubmit: () => void;
 };
 
 export function LeaveBalanceToolbar({
@@ -27,7 +25,6 @@ export function LeaveBalanceToolbar({
   globalYearEnd,
   designationOptions,
   yearOptions,
-  allRowsSaved,
   isSubmitting,
   isLoading,
   isDownloading,
@@ -36,7 +33,6 @@ export function LeaveBalanceToolbar({
   onGlobalYearEndChange,
   onSaveAll,
   onDownloadExcel,
-  onSubmit,
 }: LeaveBalanceToolbarProps) {
   return (
     <Stack
@@ -49,22 +45,6 @@ export function LeaveBalanceToolbar({
       <Box>
         <Typography variant="h4" fontWeight={700}>
           Leave Balance
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            mt: 1,
-            display: "inline-block",
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 1,
-            bgcolor: "#d32f2f",
-            color: "#fff",
-            fontWeight: 700,
-            letterSpacing: "0.02em",
-          }}
-        >
-          Please refrain from uploading now. Kindly upload the data tomorrow onwards.
         </Typography>
       </Box>
 
@@ -86,9 +66,9 @@ export function LeaveBalanceToolbar({
           sx={{ minWidth: 260 }}
         >
           <MenuItem value="">All</MenuItem>
-          {designationOptions.map((designation) => (
+          {designationOptions.map((designation, index) => (
             <MenuItem
-              key={designation.pklDesignationId}
+              key={`${designation.pklDesignationId}-${index}`}
               value={String(designation.pklDesignationId)}
             >
               {designation.vsDesignationName}
@@ -104,14 +84,14 @@ export function LeaveBalanceToolbar({
           sx={{ minWidth: 180 }}
         >
           <MenuItem value="">Select</MenuItem>
-          {yearOptions.map((year) => (
-            <MenuItem key={year.pklYearId} value={String(year.pklYearId)}>
+          {yearOptions.map((year, index) => (
+            <MenuItem key={`${year.pklYearId}-${index}`} value={String(year.pklYearId)}>
               {year.vsYear}
             </MenuItem>
           ))}
         </TextField>
-        <Button variant="outlined" onClick={onSaveAll} disabled={isSubmitting || isLoading}>
-          {allRowsSaved ? "Cancel All" : "Save All"}
+        <Button variant="contained" onClick={onSaveAll} disabled={isSubmitting || isLoading}>
+          Save All
         </Button>
         <Button
           variant="outlined"
@@ -119,10 +99,7 @@ export function LeaveBalanceToolbar({
           onClick={onDownloadExcel}
           disabled={isLoading || isDownloading}
         >
-          {isDownloading ? "Downloading..." : "Download to Excel"}
-        </Button>
-        <Button variant="contained" onClick={onSubmit} disabled={isSubmitting || isLoading}>
-          Submit
+          {isDownloading ? "Downloading..." : "XLS"}
         </Button>
       </Stack>
     </Stack>

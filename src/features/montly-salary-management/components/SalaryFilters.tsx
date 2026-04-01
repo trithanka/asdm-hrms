@@ -6,9 +6,8 @@ import {
     MenuItem,
     Select,
     Stack,
-    Typography,
 } from "@mui/material";
-import { SALARY_MONTHS, SALARY_STAGE_COLORS, SALARY_STAGE_LABELS } from "../constants/salaryConstants";
+import { SALARY_MONTHS } from "../constants/salaryConstants";
 
 interface SalaryFiltersProps {
     selectedYear: number | "";
@@ -45,9 +44,7 @@ export function SalaryFilters({
     currentStepTrack,
     children,
 }: SalaryFiltersProps) {
-    const stageKey = currentStepTrack ?? 1;
-    const stageColor = SALARY_STAGE_COLORS[stageKey] ?? SALARY_STAGE_COLORS[1];
-    const stageLabel = SALARY_STAGE_LABELS[stageKey] ?? `Step ${stageKey}`;
+    void currentStepTrack;
 
     return (
         <Box
@@ -98,7 +95,6 @@ export function SalaryFilters({
                                 key={month.value}
                                 value={month.value}
                                 disabled={isMonthDisabled(month.value)}
-                                sx={{ display: isMonthDisabled(month.value) ? "none" : "flex" }}
                             >
                                 {month.label}
                             </MenuItem>
@@ -143,23 +139,6 @@ export function SalaryFilters({
                 </FormControl>
             </Stack>
 
-            {/* Stage badge */}
-            {selectedStructureType && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto" }}>
-                    <Typography variant="subtitle2" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                        Current Stage:
-                    </Typography>
-                    <Box
-                        sx={{
-                            px: 1.5, py: 0.5, borderRadius: 10,
-                            fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase",
-                            ...stageColor,
-                        }}
-                    >
-                        {stageLabel}
-                    </Box>
-                </Box>
-            )}
             {children}
         </Box>
     );

@@ -161,6 +161,15 @@ export interface GenerateSalaryPayload {
     generateEmployees: GenerateEmployeeData[];
 }
 
+export interface SalarySendBackPayload {
+    salaryStructureType: number | string;
+    generateMonth: string;
+    generateYear: string;
+    trackStep: number;
+    comment: string;
+    generateEmployees: number[];
+}
+
 export interface GenerateSalaryResponse {
     status: string;
     sucessReport: {
@@ -251,6 +260,12 @@ export const salaryFileApi = {
         return response.data;
     },
 
+    // Enable/generate salary slips for selected month/year
+    salarySlipGenerate: async (payload: SalarySlipGeneratePayload): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/salary-slip-generate", payload);
+        return response.data;
+    },
+
     // Create/Update financial year
     saveFinancialYear: async (payload: { vsFy: string, iStartMonth: number, bEnabled: number, pklSalaryFinancialYearId?: number }): Promise<any> => {
         const response = await API.post("/SalaryGenerate/financial-year-save", payload);
@@ -302,6 +317,12 @@ export const salaryFileApi = {
         const response = await API.post("/SalaryGenerate/salary-track-timeline", payload);
         return response.data;
     },
+
+    // Send salary back to previous step (e.g., Back to HR)
+    salarySendBack: async (payload: SalarySendBackPayload): Promise<any> => {
+        const response = await API.post("/SalaryGenerate/salary-send-back", payload);
+        return response.data;
+    },
 };
 
 export interface SalaryTrackTimelinePayload {
@@ -312,6 +333,12 @@ export interface SalaryTrackTimelinePayload {
 
 export interface SalarySlipPayload {
     employeeId: string;
+    generateMonth: string;
+    generateYear: string;
+}
+
+export interface SalarySlipGeneratePayload {
+    salaryStructureType: number | string;
     generateMonth: string;
     generateYear: string;
 }

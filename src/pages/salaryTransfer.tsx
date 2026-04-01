@@ -5,7 +5,10 @@ import { SalaryFilters } from "../features/montly-salary-management/components/S
 import { SalaryActionBar } from "../features/montly-salary-management/components/SalaryActionBar";
 import { SalaryTableRenderer } from "../features/montly-salary-management/components/SalaryTableRenderer";
 import { ConfirmAttendanceDialog } from "../features/montly-salary-management/components/dialogs/ConfirmAttendanceDialog";
-import { CommentStatusDialog } from "../features/montly-salary-management/components/dialogs/CommentStatusDialog";
+import { BackToHrCommentDialog } from "../features/montly-salary-management/components/dialogs/BackToHrCommentDialog";
+import { BackToFinanceCommentDialog } from "../features/montly-salary-management/components/dialogs/BackToFinanceCommentDialog";
+import { ForwardToFinanceCommentDialog } from "../features/montly-salary-management/components/dialogs/ForwardToFinanceCommentDialog";
+import { ForwardToHrCommentDialog } from "../features/montly-salary-management/components/dialogs/ForwardToHrCommentDialog";
 import { ResultSummaryDialog } from "../features/montly-salary-management/components/dialogs/ResultSummaryDialog";
 
 export const SalaryTransfer = () => {
@@ -29,33 +32,51 @@ export const SalaryTransfer = () => {
         isMonthDisabled,
 
         // Table
+        currentTableData,
         handleSalaryDataChange,
 
         // Mutations
         generateSalaryMutation,
         saveEmployeeDataMutation,
+        salarySendBackMutation,
+        salarySlipGenerateMutation,
         salaryTimelineMutation,
 
         // Handlers
         handleExportExcel,
         handleExportPdf,
         handleSaveAll,
+        openForwardToFinanceDialog,
+        handleConfirmForwardToFinance,
+        openForwardToHrDialog,
+        handleConfirmForwardToHr,
+        openBackToHrDialog,
+        handleConfirmBackToHr,
+        openBackToFinanceDialog,
+        handleConfirmBackToFinance,
+        handleEnableSlip,
         handleTimeline,
         handleSubmit,
-        handleConfirmAndGenerate,
         handleProceedAfterConfirm,
 
         // Dialog state
         confirmDialogOpen, setConfirmDialogOpen,
-        commentDialogOpen, setCommentDialogOpen,
         resultDialogOpen, setResultDialogOpen,
+        backToHrDialogOpen, setBackToHrDialogOpen,
+        backToFinanceDialogOpen, setBackToFinanceDialogOpen,
+        forwardToHrDialogOpen, setForwardToHrDialogOpen,
+        forwardToFinanceDialogOpen, setForwardToFinanceDialogOpen,
         counts,
         resultCounts,
-        timelineComment, setTimelineComment,
-        timelineStatus, setTimelineStatus,
+        backToHrComment, setBackToHrComment,
+        backToFinanceComment, setBackToFinanceComment,
+        forwardToHrComment, setForwardToHrComment,
+        forwardToFinanceComment, setForwardToFinanceComment,
     } = useSalaryTransfer();
 
     const employeeList = filteredEmployeeList ?? [];
+    const actionEmployeeList =
+        currentTableData.length > 0 ? currentTableData : employeeList;
     const hasEmployees = employeeList.length > 0;
 
     return (
@@ -100,11 +121,17 @@ export const SalaryTransfer = () => {
                             isLoadingEmployees={isLoadingEmployees}
                             generateSalaryMutation={generateSalaryMutation}
                             saveEmployeeDataMutation={saveEmployeeDataMutation}
+                            salarySlipGenerateMutation={salarySlipGenerateMutation}
                             salaryTimelineMutation={salaryTimelineMutation}
-                            employeeList={employeeList}
+                            employeeList={actionEmployeeList}
                             onExportExcel={handleExportExcel}
                             onExportPdf={handleExportPdf}
                             onSaveAll={handleSaveAll}
+                            onForwardToFinance={openForwardToFinanceDialog}
+                            onForwardToHR={openForwardToHrDialog}
+                            onBackToHR={openBackToHrDialog}
+                            onBackToFinance={openBackToFinanceDialog}
+                            onEnableSlip={handleEnableSlip}
                             onTimeline={handleTimeline}
                             onSubmit={handleSubmit}
                         />
@@ -135,15 +162,40 @@ export const SalaryTransfer = () => {
                 counts={counts}
             />
 
-            <CommentStatusDialog
-                open={commentDialogOpen}
-                onClose={() => setCommentDialogOpen(false)}
-                onProceed={handleConfirmAndGenerate}
-                comment={timelineComment}
-                onCommentChange={setTimelineComment}
-                status={timelineStatus}
-                onStatusChange={setTimelineStatus}
-                isLoading={generateSalaryMutation.isPending}
+            <BackToHrCommentDialog
+                open={backToHrDialogOpen}
+                onClose={() => setBackToHrDialogOpen(false)}
+                onProceed={handleConfirmBackToHr}
+                comment={backToHrComment}
+                onCommentChange={setBackToHrComment}
+                isLoading={salarySendBackMutation.isPending}
+            />
+
+            <BackToFinanceCommentDialog
+                open={backToFinanceDialogOpen}
+                onClose={() => setBackToFinanceDialogOpen(false)}
+                onProceed={handleConfirmBackToFinance}
+                comment={backToFinanceComment}
+                onCommentChange={setBackToFinanceComment}
+                isLoading={salarySendBackMutation.isPending}
+            />
+
+            <ForwardToHrCommentDialog
+                open={forwardToHrDialogOpen}
+                onClose={() => setForwardToHrDialogOpen(false)}
+                onProceed={handleConfirmForwardToHr}
+                comment={forwardToHrComment}
+                onCommentChange={setForwardToHrComment}
+                isLoading={saveEmployeeDataMutation.isPending}
+            />
+
+            <ForwardToFinanceCommentDialog
+                open={forwardToFinanceDialogOpen}
+                onClose={() => setForwardToFinanceDialogOpen(false)}
+                onProceed={handleConfirmForwardToFinance}
+                comment={forwardToFinanceComment}
+                onCommentChange={setForwardToFinanceComment}
+                isLoading={saveEmployeeDataMutation.isPending}
             />
 
             <ResultSummaryDialog

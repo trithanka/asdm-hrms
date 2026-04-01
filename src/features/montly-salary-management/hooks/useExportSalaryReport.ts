@@ -72,7 +72,7 @@ export function exportAsdmNescSalaryReport(
         "Income Tax Deduction (₹)": emp.deductionIncomeTax ?? 0,
         "Other Deductions (₹)": emp.ddvancesOtherDeductions ?? 0,
         "Total Deduction (₹)": emp.totalDeduction ?? 0,
-        "Net Amount (₹)": emp.netAmount ?? 0,
+        "Net Amount (₹)": Math.round(emp.netAmount ?? 0),
         "Status": emp.salaryStatus,
     }));
 
@@ -95,7 +95,7 @@ export function exportAsdmNescSalaryReport(
             deductionIncomeTax: acc.deductionIncomeTax + (emp.deductionIncomeTax ?? 0),
             otherDeductions: acc.otherDeductions + (emp.ddvancesOtherDeductions ?? 0),
             totalDeduction: acc.totalDeduction + (emp.totalDeduction ?? 0),
-            netAmount: acc.netAmount + (emp.netAmount ?? 0),
+            netAmount: acc.netAmount + Math.round(emp.netAmount ?? 0),
         }),
         {
             attendance: 0,
@@ -261,7 +261,7 @@ export function useExportSalaryReport() {
                         <td style="text-align:right;">${(emp.deductionIncomeTax ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="text-align:right;">${(emp.ddvancesOtherDeductions ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="text-align:right;">${(emp.totalDeduction ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="text-align:right; font-weight:bold;">${(emp.netAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="text-align:right; font-weight:bold;">${Math.round(emp.netAmount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td>${emp.salaryStatus ?? ""}</td>
                     </tr>
                 `
@@ -286,7 +286,7 @@ export function useExportSalaryReport() {
                     deductionIncomeTax: acc.deductionIncomeTax + (emp.deductionIncomeTax ?? 0),
                     otherDeductions: acc.otherDeductions + (emp.ddvancesOtherDeductions ?? 0),
                     totalDeduction: acc.totalDeduction + (emp.totalDeduction ?? 0),
-                    netAmount: acc.netAmount + (emp.netAmount ?? 0),
+                    netAmount: acc.netAmount + Math.round(emp.netAmount ?? 0),
                 }),
                 {
                     attendance: 0, lwpDays: 0, basicPay: 0, increment: 0, salary: 0,

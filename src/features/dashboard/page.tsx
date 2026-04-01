@@ -1,20 +1,17 @@
 import ErrorIcon from "@mui/icons-material/Error";
-import ServiceStatus from "./components/service-status";
 import EmployeesCount from "./components/employees-count";
 import useFetchDashboard from "./hooks/useFetchDashboard";
-import LeaveActivities from "./components/leave-activities";
-import UpcomingHolidays from "./components/upcoming-holidays";
 import StatisticCard from "./components/cards/statistic-card";
-import AttendanceRateGraph from "./components/graphs/attendance-rate-graph";
 import DiversityMatrixGraph from "./components/graphs/diversity-matrix-graph";
 import LeaveDetailCard from "../leaves/components/cards/leave-detail-card";
 import { CircularProgress, Grid, Stack, Typography } from "@mui/material";
-import useFetchAttendanceRateDepartmentWise from "./hooks/useFetchAttendanceRateDepartmentWise";
 
 export default function DashboardPage() {
   const { data, isPending } = useFetchDashboard();
-  const { data: attendanceRateDepartmentWise } =
-    useFetchAttendanceRateDepartmentWise();
+  const toNumber = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
 
   if (isPending) {
     return (
@@ -32,43 +29,112 @@ export default function DashboardPage() {
             <StatisticCard
               label="Total Employees as on Date"
               link="/employees"
-              value={ data?.employeeCount! }
+              value={ toNumber(data?.employeeCount) }
             />
           </Grid>
 
+
+
           <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
+            <StatisticCard
+              label="Approved Employees"
+              value={ toNumber(data?.approvedCount) }
+           
+              bgColor="#3c9f30"
+            />
+          </Grid>
+              <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
+            <StatisticCard
+              label="Rejected Employees"
+              value={ toNumber(data?.rejectedCount) }
+
+           
+              bgColor="#ff5050"
+            />
+          </Grid>
+           <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
+            <StatisticCard
+              label="Release"
+              value={ toNumber(data?.regignationCount) }
+                            link="/leave-activity/?staff=resigned"
+
+           
+              bgColor="#e37d25"
+            />
+          </Grid>
+
+          
+
+          {/* <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
             <StatisticCard
               label="Pending Leave Request"
               value={ data?.leaveRequestPending! }
               link="/leaves"
               bgColor="#e37d25"
             />
-          </Grid>
+          </Grid> */}
 
-          <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
+          {/* <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
             <StatisticCard
               label="Approved Leaves"
               value={ data?.leaveRequestApproved! }
               link="/leaves/?type=approve"
               bgColor="#3c9f30"
             />
-          </Grid>
+          </Grid> */}
 
-          <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
+          {/* <Grid item xs={ 12 } sm={ 6 } md={ 3 }>
             <StatisticCard
               label="Rejected Leaves"
               value={ data?.leaveRequestRejected! }
               link="/leaves/?type=rejected"
               bgColor="#ff4a4a"
             />
-          </Grid>
+          </Grid> */}
 
-          <Grid item container xs={ 12 } spacing={ 2 }>
-            <Grid item xs={ 12 } md={ 6 } sx={ { height: "auto" } }>
+          <Grid
+            item
+            container
+            xs={ 12 }
+            spacing={ 2 }
+            alignItems="stretch"
+            sx={{ height: { xs: "auto", md: 520 } }}
+          >
+            <Grid item xs={ 12 } md={ 6 } sx={{ display: "flex", height: { md: "100%" } }}>
               <EmployeesCount />
             </Grid>
 
-            <Grid
+
+          <Grid item xs={ 12 } md={ 6 } sx={{ display: "flex", height: { md: "100%" } }}>
+            <LeaveDetailCard title="Diversity Matrix - Gender Wise">
+              <Stack sx={{ flex: 1, minHeight: { xs: 320, md: 0 }, height: "100%" }}>
+                { !isPending && data?.genderWise ? (
+                  <DiversityMatrixGraph data={ data?.genderWise } />
+                ) : (
+                  <Stack
+                    alignItems="center"
+                    justifyContent="center"
+                    height="100%"
+                  >
+                    <ErrorIcon color="action" />
+                    <Typography
+                      pt={ 1 }
+                      variant="caption"
+                      fontWeight={ 500 }
+                      color="text.secondary"
+                    >
+                      No Data Found
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      The data was not retrieved correctly.
+                    </Typography>
+                  </Stack>
+                ) }
+              </Stack>
+            </LeaveDetailCard>
+          </Grid>
+
+            {/* <Grid
               item
               xs={ 12 }
               md={ 6 }
@@ -97,7 +163,7 @@ export default function DashboardPage() {
                   <UpcomingHolidays holidays={ data?.holidays ?? [] } />
                 </Grid>
               </Grid>
-            </Grid>
+            </Grid> */}
           </Grid>
 
           {/* <Grid item xs={ 12 } md={ 6 } height={ 400 }>
@@ -106,7 +172,7 @@ export default function DashboardPage() {
 
           {/* <Grid item xs={12} md={6} height={400}>
             <LeaveDetailCard title="Most Common Reason for Leave">
-              <Stack height="300px">
+              <Stack sx={{ flex: 1, minHeight: 0 }}>
                 {!isPending && data?.leaveCommonReason ? (
                   <CommonReasonsGraph data={data?.leaveCommonReason} />
                 ) : (
@@ -135,7 +201,7 @@ export default function DashboardPage() {
 
           {/* <Grid item xs={12} md={6} height={400}>
             <LeaveDetailCard title="Leave Trends Over Time">
-              <Stack height="300px">
+              <Stack sx={{ flex: 1, minHeight: 0 }}>
                 {!isPending && data?.absentToday ? (
                   <LeaveTrendOvertime />
                 ) : (
@@ -164,7 +230,7 @@ export default function DashboardPage() {
 
           {/* <Grid item xs={12} md={6} height={400}>
             <LeaveDetailCard title="Absenteeism Rates">
-              <Stack height="300px">
+              <Stack sx={{ flex: 1, minHeight: 0 }}>
                 {!isPending && data?.absentToday ? (
                   <AbsenteeismRateGraph />
                 ) : (
@@ -191,9 +257,9 @@ export default function DashboardPage() {
             </LeaveDetailCard>
           </Grid> */}
 
-          <Grid item xs={ 6 } height={ 400 }>
+          {/* <Grid item xs={ 12 } md={ 6 } sx={{ display: "flex" }}>
             <LeaveDetailCard title="Diversity Matrix - Gender Wise">
-              <Stack height="300px">
+              <Stack sx={{ flex: 1, minHeight: 0 }}>
                 { !isPending && data?.genderWise ? (
                   <DiversityMatrixGraph data={ data?.genderWise } />
                 ) : (
@@ -218,11 +284,11 @@ export default function DashboardPage() {
                 ) }
               </Stack>
             </LeaveDetailCard>
-          </Grid>
-
-          <Grid item xs={ 6 } height={ 400 }>
+          </Grid> */}
+{/* 
+          <Grid item xs={ 12 } md={ 6 } sx={{ display: "flex" }}>
             <LeaveDetailCard title="Attendance Rates - Department Wise">
-              <Stack height="300px">
+              <Stack sx={{ flex: 1, minHeight: 0 }}>
                 { !isPending && data?.absentToday ? (
                   <AttendanceRateGraph data={ attendanceRateDepartmentWise } />
                 ) : (
@@ -247,7 +313,7 @@ export default function DashboardPage() {
                 ) }
               </Stack>
             </LeaveDetailCard>
-          </Grid>
+          </Grid> */}
         </Grid>
       </section>
     </>

@@ -15,10 +15,10 @@ export function LeaveBalanceSubmitDialog({
 }: LeaveBalanceSubmitDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Confirm Submission</DialogTitle>
+      <DialogTitle>Confirm Save All</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          Are you sure you want to submit the saved leave balance details?
+          Are you sure you want to save all valid leave balance details?
         </DialogContentText>
       </DialogContent>
       <DialogActions>
@@ -26,7 +26,7 @@ export function LeaveBalanceSubmitDialog({
           Cancel
         </Button>
         <Button variant="contained" onClick={onSubmit} disabled={isSubmitting}>
-          Final Submit
+          Save All
         </Button>
       </DialogActions>
     </Dialog>

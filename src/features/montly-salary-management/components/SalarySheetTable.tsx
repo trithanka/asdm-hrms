@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from "react";
 import {
+    Box,
     Paper,
     Table,
     TableBody,
@@ -14,8 +15,6 @@ import {
     CircularProgress,
 } from "@mui/material";
 import ReceiptIcon from "@mui/icons-material/Receipt";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import { generateSalarySlip } from "../utils/generateSalarySlip";
 import { useSalarySlip } from "../hooks/useGetSalaryFile";
 import toast from "react-hot-toast";
@@ -66,6 +65,404 @@ interface SalarySheetTableProps {
     stepTrack?: number | null;
 }
 
+interface SalarySheetRowProps {
+    row: SalarySheetData;
+    absoluteIndex: number;
+    workingDaysForMonth: number;
+    roleId: number;
+    isGenerating: boolean;
+    onHoldToggle: (rowIndex: number, checked: boolean) => void;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, rowIndex: number, field: keyof SalarySheetData) => void;
+    onGenerateReceipt: (row: SalarySheetData) => void;
+    formatValue: (value: number | null | undefined) => string;
+}
+
+const SalarySheetRow = memo(({
+    row,
+    absoluteIndex,
+    workingDaysForMonth,
+    roleId,
+    isGenerating,
+    onHoldToggle,
+    onChange,
+    onGenerateReceipt,
+    formatValue,
+}: SalarySheetRowProps) => {
+    const isRowCurrentlyHeld = row.hold !== undefined ? Boolean(row.hold) : row.isHold === 1;
+    const isFinanceRole = roleId === 36;
+    const isHrRole = roleId === 98;
+    const isFinanceStepRow = row.stepTrack === 2;
+    const isHrFinalStepRow = row.stepTrack === 3;
+    const isLockedByStepTrack =
+        row.stepTrack !== null &&
+        row.stepTrack !== undefined &&
+        !((isHrRole && row.stepTrack === 1) || (isFinanceRole && row.stepTrack === 2));
+    const isHoldDisabled = isLockedByStepTrack || isFinanceRole || (isHrRole && isHrFinalStepRow);
+    const stepLabel = getStepLabel(row.stepTrack ?? null);
+    const statusText = String(row.salaryStatus ?? "").trim().toLowerCase();
+    const isSlipEnabled = statusText === "generated";
+    const stepBadgeSx =
+        row.stepTrack === 1 || row.stepTrack === null
+            ? { bgcolor: "#f5f5f5", color: "#616161" }
+            : row.stepTrack === 2
+                ? { bgcolor: "#fff3e0", color: "#ed6c02" }
+                : row.stepTrack === 3
+                    ? { bgcolor: "#e3f2fd", color: "#1565c0" }
+                    : row.stepTrack === 4
+                        ? { bgcolor: "#e8f5e9", color: "#2e7d32" }
+                        : { bgcolor: "#eceff1", color: "#455a64" };
+
+    const isHrStepEditable = isHrRole && (row.stepTrack === null || row.stepTrack === 1);
+    const isFinanceStepEditable = isFinanceRole && isFinanceStepRow;
+
+    const canEditInputsThisRow = !isLockedByStepTrack && !isRowCurrentlyHeld && isHrStepEditable;
+    const canEditIncomeTaxThisRow = !isLockedByStepTrack && !isRowCurrentlyHeld && isFinanceStepEditable;
+    const canEditOtherDedThisRow = !isLockedByStepTrack && !isRowCurrentlyHeld && (isHrStepEditable || isFinanceStepEditable);
+    const canEditCommentThisRow = !isLockedByStepTrack && !isRowCurrentlyHeld && isHrStepEditable;
+    const handleSelectAllOnFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        e.target.select();
+    };
+
+    return (
+        <TableRow
+            hover
+            sx={
+                isRowCurrentlyHeld || isLockedByStepTrack
+                    ? {
+                        "& td": { backgroundColor: "#eeeeee !important", color: "#757575 !important" },
+                        "& .MuiOutlinedInput-root": { backgroundColor: "#eeeeee !important" },
+                        "& .MuiInputBase-input": { color: "#757575 !important" },
+                        // Keep hold column behavior driven by isHoldDisabled (not row lock styling).
+                        "& td:nth-of-type(3)": {
+                            backgroundColor: isHoldDisabled ? "#f0f0f0 !important" : "#ffffff !important",
+                            color: "inherit !important",
+                        },
+                        "& td:nth-of-type(3) .MuiCheckbox-root": {
+                            opacity: isHoldDisabled ? 0.45 : 1,
+                            cursor: isHoldDisabled ? "not-allowed" : "pointer",
+                        },
+                        // Keep action column active for salary slip download.
+                        "& td:last-of-type": { backgroundColor: "#ffffff !important", color: "inherit !important" },
+                    }
+                    : undefined
+            }
+        >
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    bgcolor: "white",
+                    zIndex: 11,
+                    textAlign: "center"
+                }}
+            >
+                {absoluteIndex + 1}
+            </TableCell>
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    bgcolor: "white",
+                    zIndex: 11,
+                    textAlign: "center",
+                    fontSize: "0.8125rem",
+                    fontWeight: 500,
+                }}
+            >
+                <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 0.6, flexWrap: "wrap" }}>
+                    <Box
+                        component="span"
+                        sx={{
+                            display: "inline-block",
+                            px: 0.9,
+                            py: 0.2,
+                            borderRadius: 999,
+                            fontSize: "0.64rem",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            whiteSpace: "nowrap",
+                            letterSpacing: "0.02em",
+                            ...stepBadgeSx,
+                        }}
+                    >
+                        {stepLabel}
+                    </Box>
+                    {isSlipEnabled && (
+                        <Box
+                            component="span"
+                            sx={{
+                                display: "inline-block",
+                                px: 0.9,
+                                py: 0.2,
+                                borderRadius: 999,
+                                fontSize: "0.64rem",
+                                fontWeight: 700,
+                                lineHeight: 1.2,
+                                whiteSpace: "nowrap",
+                                letterSpacing: "0.02em",
+                                bgcolor: "#e3f2fd",
+                                color: "#1565c0",
+                            }}
+                        >
+                            Slip Enabled
+                        </Box>
+                    )}
+                </Box>
+            </TableCell>
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    bgcolor: isHoldDisabled ? "#f0f0f0" : "white",
+                    zIndex: 11,
+                    textAlign: "center",
+                    opacity: isHoldDisabled ? 0.7 : 1,
+                }}
+            >
+                <Checkbox
+                    checked={isRowCurrentlyHeld}
+                    onChange={(e) => onHoldToggle(absoluteIndex, e.target.checked)}
+                    size="small"
+                    disabled={isHoldDisabled}
+                    sx={isHoldDisabled ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+                />
+            </TableCell>
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 11,
+                    bgcolor: "white",
+                    minWidth: 200,
+                    verticalAlign: "center",
+                }}
+            >
+                <div style={{ fontWeight: 600, fontSize: "0.875rem", lineHeight: 1.3 }}>
+                    {row.fullName}
+                </div>
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", fontWeight: 600 }}>
+                {workingDaysForMonth}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.attendance ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "attendance")}
+                    onFocus={canEditInputsThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        readOnly: !canEditInputsThisRow,
+                        tabIndex: !canEditInputsThisRow ? -1 : undefined,
+                        style: { cursor: !canEditInputsThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditInputsThisRow ? 1 : 0.5,
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "center", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.lwpDays ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "lwpDays")}
+                    onFocus={canEditInputsThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        readOnly: !canEditInputsThisRow,
+                        tabIndex: !canEditInputsThisRow ? -1 : undefined,
+                        style: { cursor: !canEditInputsThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditInputsThisRow ? 1 : 0.5,
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "center", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: canEditInputsThisRow ? "#fff8f1" : "#f5f5f5", p: 0.5 }}>
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.basicPay ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "basicPay")}
+                    onFocus={canEditInputsThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        step: "0.01",
+                        readOnly: !canEditInputsThisRow,
+                        tabIndex: !canEditInputsThisRow ? -1 : undefined,
+                        style: { cursor: !canEditInputsThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditInputsThisRow ? 1 : 0.5,
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "right", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", backgroundColor: "#fff3e0" }}>
+                {formatValue(row.incrementPercentValueFy)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1" }}>
+                {formatValue(row.salary)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                {formatValue(row.houseRentPercentValue)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                {formatValue(row.mobileInternet)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                {formatValue(row.newsPaperMagazine)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                {formatValue(row.conveyanceAllowances)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
+                {formatValue(row.educationAllowance)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.arrear ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "arrear")}
+                    onFocus={canEditInputsThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        readOnly: !canEditInputsThisRow,
+                        tabIndex: !canEditInputsThisRow ? -1 : undefined,
+                        style: { cursor: !canEditInputsThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditInputsThisRow ? 1 : 0.5,
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "right", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", fontWeight: 600, backgroundColor: "#f1f8e9" }}>
+                {formatValue(row.totalSalary)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", backgroundColor: "#fffde7" }}>
+                {formatValue(row.deductionOfPtax)}
+            </TableCell>
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    textAlign: "right",
+                    backgroundColor: canEditIncomeTaxThisRow ? "#fffde7" : "#f0f0f0",
+                    p: 0.5
+                }}
+            >
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.deductionIncomeTax ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "deductionIncomeTax")}
+                    onFocus={canEditIncomeTaxThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        readOnly: !canEditIncomeTaxThisRow,
+                        tabIndex: !canEditIncomeTaxThisRow ? -1 : undefined,
+                        style: { cursor: !canEditIncomeTaxThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditIncomeTaxThisRow ? 1 : 0.45,
+                        backgroundColor: canEditIncomeTaxThisRow ? "#fffde7" : "#f0f0f0",
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "right", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell
+                sx={{
+                    border: "1px solid #ddd",
+                    textAlign: "right",
+                    backgroundColor: canEditOtherDedThisRow ? "#fffde7" : "#f0f0f0",
+                    p: 0.5
+                }}
+            >
+                <TextField
+                    size="small"
+                    type="number"
+                    value={row.ddvancesOtherDeductions ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "ddvancesOtherDeductions")}
+                    onFocus={canEditOtherDedThisRow ? handleSelectAllOnFocus : undefined}
+                    inputProps={{
+                        min: 0,
+                        readOnly: !canEditOtherDedThisRow,
+                        tabIndex: !canEditOtherDedThisRow ? -1 : undefined,
+                        style: { cursor: !canEditOtherDedThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditOtherDedThisRow ? 1 : 0.45,
+                        backgroundColor: canEditOtherDedThisRow ? "#fffde7" : "#f0f0f0",
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
+                        "& input": { textAlign: "right", padding: "4px 8px" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", fontWeight: 600, backgroundColor: "#fffde7" }}>
+                {formatValue(row.totalDeduction)}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", fontWeight: 700, backgroundColor: "#e0f2f1", color: "#00695c" }}>
+                {row.netAmount !== null ? formatValue(Math.round(row.netAmount)) : ""}
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", p: 0.5, backgroundColor: canEditCommentThisRow ? "transparent" : "#f5f5f5" }}>
+                <TextField
+                    size="small"
+                    multiline
+                    minRows={1}
+                    value={row.employeeCommentBeforeAck ?? ""}
+                    onChange={(e) => onChange(e, absoluteIndex, "employeeCommentBeforeAck")}
+                    placeholder="Enter comment"
+                    fullWidth
+                    inputProps={{
+                        readOnly: !canEditCommentThisRow,
+                        tabIndex: !canEditCommentThisRow ? -1 : undefined,
+                        style: { cursor: !canEditCommentThisRow ? "default" : undefined },
+                    }}
+                    sx={{
+                        opacity: canEditCommentThisRow ? 1 : 0.5,
+                        "& .MuiOutlinedInput-root": { fontSize: "0.875rem", alignItems: "flex-start" },
+                        "& textarea": { padding: "4px 8px", resize: "vertical", overflow: "auto" },
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
+                {row.salaryStatus === "generated" && (
+                    <Tooltip title="Generate Salary Slip">
+                        <span>
+                            <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => onGenerateReceipt(row)}
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? <CircularProgress size={20} /> : <ReceiptIcon />}
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                )}
+            </TableCell>
+        </TableRow>
+    );
+}, (prev, next) =>
+    prev.row === next.row &&
+    prev.absoluteIndex === next.absoluteIndex &&
+    prev.workingDaysForMonth === next.workingDaysForMonth &&
+    prev.roleId === next.roleId &&
+    prev.isGenerating === next.isGenerating &&
+    prev.onHoldToggle === next.onHoldToggle &&
+    prev.onChange === next.onChange &&
+    prev.onGenerateReceipt === next.onGenerateReceipt &&
+    prev.formatValue === next.formatValue
+);
+
 export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", roleId = 0, stepTrack = null }: SalarySheetTableProps) => {
     const [tableData, setTableData] = useState<SalarySheetData[]>(data);
     const [generatingId, setGeneratingId] = useState<number | null>(null);
@@ -74,6 +471,8 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
     const [viewportHeight, setViewportHeight] = useState(700);
 
     const { isEditable, isOtherDeductionEditable } = getSalaryEditPermissions(roleId, stepTrack);
+    const isIncomeTaxHeaderEditable = roleId === 36 && stepTrack === 2;
+    const isHoldHeaderDisabled = roleId === 36 || (roleId === 98 && stepTrack === 3);
     const workingDaysForMonth = getDaysInSelectedMonth(month, year);
     const ROW_HEIGHT = 56;
     const OVERSCAN_ROWS = 8;
@@ -177,7 +576,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
         return () => window.clearTimeout(timer);
     }, [tableData, onDataChange]);
 
-    const handleChange = (
+    const handleChange = useCallback((
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
         rowIndex: number,
         field: keyof SalarySheetData
@@ -191,9 +590,20 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
             field === "deductionOfPtax" ||
             field === "deductionIncomeTax" ||
             field === "ddvancesOtherDeductions";
+
+        const normalizeNumericValue = (raw: string): number | null => {
+            const trimmed = raw?.trim();
+            if (!trimmed) return null;
+
+            // Keep decimal inputs intact, but normalize integer-like leading zeros.
+            const normalized = trimmed.replace(/^(-?)0+(\d)/, "$1$2");
+            const parsed = Number(normalized);
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+
         const parsedValue =
             isNumericField
-                ? (value === "" || value === null || value === undefined ? null : (isNaN(parseFloat(value)) ? null : parseFloat(value)))
+                ? normalizeNumericValue(value)
                 : value;
 
         setTableData((prev) =>
@@ -207,9 +617,9 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                 return recalculateRow(updatedRow, data[idx]);
             })
         );
-    };
+    }, [data, recalculateRow]);
 
-    const handleHoldToggle = (rowIndex: number, checked: boolean) => {
+    const handleHoldToggle = useCallback((rowIndex: number, checked: boolean) => {
         setTableData((prev) =>
             prev.map((row, idx) => {
                 if (idx !== rowIndex) return row;
@@ -217,21 +627,22 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                 return {
                     ...row,
                     hold: checked,
+                    isHold: checked ? 1 : 0,
                 };
             })
         );
-    };
+    }, []);
 
 
-    const formatValue = (value: number | null | undefined) => {
+    const formatValue = useCallback((value: number | null | undefined) => {
         if (value === null || value === undefined) return "0.00";
         return value.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
-    };
+    }, []);
 
-    const handleGenerateReceipt = async (row: SalarySheetData) => {
+    const handleGenerateReceipt = useCallback(async (row: SalarySheetData) => {
         if (!month || !year) {
             toast.error("Please select month and year first");
             return;
@@ -259,7 +670,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
         } finally {
             setGeneratingId(null);
         }
-    };
+    }, [month, year, salarySlipMutation]);
 
     const totalRows = tableData.length;
     const visibleRange = useMemo(() => {
@@ -318,23 +729,6 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 textTransform: "uppercase",
                                 letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                // position: "sticky",
-                                // left: 60,
-                                zIndex: 11,
-                                bgcolor: "#f5f5f5",
-                                textAlign: "center",
-                                minWidth: 60,
-                            }}
-                        >
-                            Status
-                        </TableCell>
-                        <TableCell
-                            sx={{
-                                fontWeight: 700,
-                                fontSize: "0.75rem",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                border: "1px solid #ddd",
                                 zIndex: 11,
                                 bgcolor: "#f5f5f5",
                                 textAlign: "center",
@@ -354,7 +748,9 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 // position: "sticky",
                                 // left: 120,
                                 zIndex: 11,
-                                bgcolor: "#f5f5f5",
+                                bgcolor: isHoldHeaderDisabled ? "#e0e0e0" : "#f5f5f5",
+                                color: isHoldHeaderDisabled ? "#9e9e9e" : "inherit",
+                                opacity: isHoldHeaderDisabled ? 0.7 : 1,
                                 textAlign: "center",
                                 minWidth: 70,
                             }}
@@ -381,13 +777,13 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#f5f5f5", userSelect: "none", textAlign: "center", minWidth: 95 }}>
                             Working Days
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: isEditable ? "#e3f2fd" : "#e0e0e0", color: isEditable ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "center", minWidth: 100, opacity: isEditable ? 1 : 0.7 }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: (isEditable && roleId !== 36) ? "#e3f2fd" : "#e0e0e0", color: (isEditable && roleId !== 36) ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "center", minWidth: 100, opacity: (isEditable && roleId !== 36) ? 1 : 0.7 }}>
                             Attendance (in days)
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: isEditable ? "#e3f2fd" : "#e0e0e0", color: isEditable ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "center", minWidth: 100, opacity: isEditable ? 1 : 0.7 }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: (isEditable && roleId !== 36) ? "#e3f2fd" : "#e0e0e0", color: (isEditable && roleId !== 36) ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "center", minWidth: 100, opacity: (isEditable && roleId !== 36) ? 1 : 0.7 }}>
                             LWP Days (in days)
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: isEditable ? "#fff3e0" : "#e0e0e0", color: isEditable ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "right", minWidth: 110, opacity: isEditable ? 1 : 0.7 }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: (isEditable && roleId !== 36) ? "#fff3e0" : "#e0e0e0", color: (isEditable && roleId !== 36) ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "right", minWidth: 110, opacity: (isEditable && roleId !== 36) ? 1 : 0.7 }}>
                             Fixed pay
                         </TableCell>
                         <TableCell
@@ -424,7 +820,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: "#ede7f6", userSelect: "none", textAlign: "right", minWidth: 140 }}>
                             Edu. Allw
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: isEditable ? "#c8e6c9" : "#e0e0e0", color: isEditable ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "right", minWidth: 100, opacity: isEditable ? 1 : 0.7 }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid #ddd", backgroundColor: (isEditable && roleId !== 36) ? "#c8e6c9" : "#e0e0e0", color: (isEditable && roleId !== 36) ? "inherit" : "#9e9e9e", userSelect: "none", textAlign: "right", minWidth: 100, opacity: (isEditable && roleId !== 36) ? 1 : 0.7 }}>
                             Arrear
                         </TableCell>
                         <TableCell
@@ -458,7 +854,7 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                         >
                             P-Tax
                         </TableCell>
-                        {/* Inc Tax: ALWAYS greyed - never editable */}
+                        {/* Inc Tax: editable for finance on step 2 rows only */}
                         <TableCell
                             sx={{
                                 fontWeight: 700,
@@ -466,12 +862,12 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 textTransform: "uppercase",
                                 letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: "#e0e0e0",
-                                color: "#9e9e9e",
+                                backgroundColor: isIncomeTaxHeaderEditable ? "#fff9c4" : "#e0e0e0",
+                                color: isIncomeTaxHeaderEditable ? "inherit" : "#9e9e9e",
                                 userSelect: "none",
                                 textAlign: "right",
                                 minWidth: 120,
-                                opacity: 0.7,
+                                opacity: isIncomeTaxHeaderEditable ? 1 : 0.7,
                             }}
                         >
                             Inc Tax
@@ -533,12 +929,12 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                                 textTransform: "uppercase",
                                 letterSpacing: "0.05em",
                                 border: "1px solid #ddd",
-                                backgroundColor: isEditable ? "inherit" : "#e0e0e0",
-                                color: isEditable ? "inherit" : "#9e9e9e",
+                                backgroundColor: (isEditable && roleId !== 36) ? "inherit" : "#e0e0e0",
+                                color: (isEditable && roleId !== 36) ? "inherit" : "#9e9e9e",
                                 userSelect: "none",
                                 textAlign: "left",
                                 minWidth: 240,
-                                opacity: isEditable ? 1 : 0.7,
+                                opacity: (isEditable && roleId !== 36) ? 1 : 0.7,
                             }}
                         >
                             Comment
@@ -569,342 +965,19 @@ export const SalarySheetTable = ({ data, onDataChange, month = "", year = "", ro
                         const absoluteIndex = visibleRange.start + index;
                         const rowId = row.pklSalaryBreakingAsdmNescEmployeeWiseId || row.employeeId;
 
-                        // Combined lock: check if row is currently held (instant UI or API value) 
-                        const isRowCurrentlyHeld = Boolean(row.hold) || row.isHold === 1;
-
-                        // General inputs lock (Attendance, LWP, BasicPay, Arrear)
-                        const canEditInputsThisRow = isEditable && !isRowCurrentlyHeld;
-
-                        // Other deductions lock (role 36 step 2 specific)
-                        const canEditOtherDedThisRow = isOtherDeductionEditable && !isRowCurrentlyHeld;
-
-                        // Comment field remains editable even when held (user request)
-                        const canEditCommentThisRow = isEditable;
-
                         return (
-                            <TableRow
+                            <SalarySheetRow
                                 key={`${rowId}-${absoluteIndex}`}
-                                hover
-                                sx={
-                                    isRowCurrentlyHeld
-                                        ? {
-                                            "& td": { backgroundColor: "#eeeeee !important" },
-                                            "& .MuiOutlinedInput-root": { backgroundColor: "#eeeeee !important" },
-                                        }
-                                        : undefined
-                                }
-                            >
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        // position: "sticky",
-                                        // left: 0,
-                                        bgcolor: "white",
-                                        zIndex: 11,
-                                        textAlign: "center"
-                                    }}
-                                >
-                                    {absoluteIndex + 1}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        // position: "sticky",
-                                        // left: 60,
-                                        bgcolor: "white",
-                                        zIndex: 11,
-                                        textAlign: "center"
-                                    }}
-                                >
-                                    {row.salaryStatus === "generated" ? (
-                                        <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />
-                                    ) : (
-                                        <ReportProblemIcon fontSize="small" sx={{ color: 'warning.main' }} />
-                                    )}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        bgcolor: "white",
-                                        zIndex: 11,
-                                        textAlign: "center",
-                                        fontSize: "0.8125rem",
-                                        fontWeight: 500,
-                                    }}
-                                >
-                                    {getStepLabel(row.stepTrack ?? null)}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        // position: "sticky",
-                                        // left: 120,
-                                        bgcolor: "white",
-                                        zIndex: 11,
-                                        textAlign: "center"
-                                    }}
-                                >
-                                    <Checkbox
-                                        checked={Boolean(row.hold)}
-                                        onChange={(e) => handleHoldToggle(absoluteIndex, e.target.checked)}
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        position: "sticky",
-                                        left: 0,
-                                        zIndex: 11,
-                                        bgcolor: "white",
-                                        minWidth: 200,
-                                        verticalAlign: "center",
-                                    }}
-                                >
-                                    <div style={{ fontWeight: 600, fontSize: "0.875rem", lineHeight: 1.3 }}>
-                                        {row.fullName}
-                                    </div>
-                                    {/* <div style={{ fontSize: "0.75rem", color: "#666", marginTop: 2 }}>
-                                        {row.designationName}
-                                    </div> */}
-                                    {/* <div style={{ fontSize: "0.7rem", color: "#999", marginTop: 1 }}>
-                                        {row.designationCategory}
-                                    </div> */}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", fontWeight: 600 }}>
-                                    {workingDaysForMonth}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.attendance ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "attendance")}
-                                        inputProps={{
-                                            min: 0,
-                                            readOnly: !canEditInputsThisRow,
-                                            tabIndex: !canEditInputsThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditInputsThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditInputsThisRow ? 1 : 0.5,
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "center", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.lwpDays ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "lwpDays")}
-                                        inputProps={{
-                                            min: 0,
-                                            readOnly: !canEditInputsThisRow,
-                                            tabIndex: !canEditInputsThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditInputsThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditInputsThisRow ? 1 : 0.5,
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "center", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: canEditInputsThisRow ? "#fff8f1" : "#f5f5f5", p: 0.5 }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.basicPay ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "basicPay")}
-                                        inputProps={{
-                                            min: 0,
-                                            step: "0.01",
-                                            readOnly: !canEditInputsThisRow,
-                                            tabIndex: !canEditInputsThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditInputsThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditInputsThisRow ? 1 : 0.5,
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "right", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "right",
-                                        backgroundColor: "#fff3e0",
-                                    }}
-                                >
-                                    {formatValue(row.incrementPercentValueFy)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#fff8f1" }}>
-                                    {formatValue(row.salary)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
-                                    {formatValue(row.houseRentPercentValue)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
-                                    {formatValue(row.mobileInternet)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
-                                    {formatValue(row.newsPaperMagazine)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
-                                    {formatValue(row.conveyanceAllowances)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", bgcolor: "#f5f3ff" }}>
-                                    {formatValue(row.educationAllowance)}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", p: 0.5, backgroundColor: canEditInputsThisRow ? "transparent" : "#f5f5f5" }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.arrear ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "arrear")}
-                                        inputProps={{
-                                            min: 0,
-                                            readOnly: !canEditInputsThisRow,
-                                            tabIndex: !canEditInputsThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditInputsThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditInputsThisRow ? 1 : 0.5,
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "right", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "right",
-                                        fontWeight: 600,
-                                        backgroundColor: "#f1f8e9",
-                                    }}
-                                >
-                                    {formatValue(row.totalSalary)}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "right",
-                                        backgroundColor: "#fffde7",
-                                    }}
-                                >
-                                    {formatValue(row.deductionOfPtax)}
-                                </TableCell>
-                                {/* Income Tax cell: ALWAYS greyed */}
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", backgroundColor: "#f0f0f0", p: 0.5 }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.deductionIncomeTax ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "deductionIncomeTax")}
-                                        inputProps={{
-                                            min: 0,
-                                            readOnly: true,
-                                            tabIndex: -1,
-                                            style: { cursor: "default" },
-                                        }}
-                                        sx={{
-                                            opacity: 0.45,
-                                            backgroundColor: "#f0f0f0",
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "right", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                {/* Adv/Oth Ded cell: greyed when not editable */}
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "right", backgroundColor: isOtherDeductionEditable ? "#fffde7" : "#f0f0f0", p: 0.5 }}>
-                                    <TextField
-                                        size="small"
-                                        type="number"
-                                        value={row.ddvancesOtherDeductions ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "ddvancesOtherDeductions")}
-                                        inputProps={{
-                                            min: 0,
-                                            readOnly: !canEditOtherDedThisRow,
-                                            tabIndex: !canEditOtherDedThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditOtherDedThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditOtherDedThisRow ? 1 : 0.45,
-                                            backgroundColor: canEditOtherDedThisRow ? "#fffde7" : "#f0f0f0",
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem" },
-                                            "& input": { textAlign: "right", padding: "4px 8px" },
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "right",
-                                        fontWeight: 600,
-                                        backgroundColor: "#fffde7",
-                                    }}
-                                >
-                                    {formatValue(row.totalDeduction)}
-                                </TableCell>
-                                <TableCell
-                                    sx={{
-                                        border: "1px solid #ddd",
-                                        textAlign: "right",
-                                        fontWeight: 700,
-                                        backgroundColor: "#e0f2f1",
-                                        color: "#00695c",
-                                    }}
-                                >
-                                    {row.netAmount !== null
-                                        ? formatValue(Math.round(row.netAmount))
-                                        : ""}
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", p: 0.5, backgroundColor: canEditCommentThisRow ? "transparent" : "#f5f5f5" }}>
-                                    <TextField
-                                        size="small"
-                                        multiline
-                                        minRows={1}
-                                        value={row.employeeCommentBeforeAck ?? ""}
-                                        onChange={(e) => handleChange(e, absoluteIndex, "employeeCommentBeforeAck")}
-                                        placeholder="Enter comment"
-                                        fullWidth
-                                        inputProps={{
-                                            readOnly: !canEditCommentThisRow,
-                                            tabIndex: !canEditCommentThisRow ? -1 : undefined,
-                                            style: { cursor: !canEditCommentThisRow ? "default" : undefined },
-                                        }}
-                                        sx={{
-                                            opacity: canEditCommentThisRow ? 1 : 0.5,
-                                            "& .MuiOutlinedInput-root": { fontSize: "0.875rem", alignItems: "flex-start" },
-                                            "& textarea": { padding: "4px 8px", resize: "vertical", overflow: "auto" },
-                                        }}
-
-                                    />
-                                </TableCell>
-                                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
-                                    {row.salaryStatus === "generated" && (
-                                        <Tooltip title="Generate Salary Slip">
-                                            <span>
-                                                <IconButton
-                                                    size="small"
-                                                    color="primary"
-                                                    onClick={() => handleGenerateReceipt(row)}
-                                                    disabled={generatingId === rowId}
-                                                >
-                                                    {generatingId === rowId ? (
-                                                        <CircularProgress size={20} />
-                                                    ) : (
-                                                        <ReceiptIcon />
-                                                    )}
-                                                </IconButton>
-                                            </span>
-                                        </Tooltip>
-                                    )}
-                                </TableCell>
-                            </TableRow>
+                                row={row}
+                                absoluteIndex={absoluteIndex}
+                                workingDaysForMonth={workingDaysForMonth}
+                                roleId={roleId}
+                                isGenerating={generatingId === rowId}
+                                onHoldToggle={handleHoldToggle}
+                                onChange={handleChange}
+                                onGenerateReceipt={handleGenerateReceipt}
+                                formatValue={formatValue}
+                            />
                         );
                     })}
                     {bottomSpacerHeight > 0 && (

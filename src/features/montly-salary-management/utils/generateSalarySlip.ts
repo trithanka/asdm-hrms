@@ -241,7 +241,7 @@ export const generateSalarySlip = async (data: SalarySlipData) => {
                     <tr style="height: 40px; background-color: #f2f2f2;">
                         <td class="bold-text">Net Salary</td>
                         <td></td>
-                        <td class="total-col bold-text" style="text-align: right;">${(data.netAmount ?? 0).toLocaleString()}</td>
+                        <td class="total-col bold-text" style="text-align: right;">${Math.round(data.netAmount ?? 0).toLocaleString("en-IN")}</td>
                     </tr>
                 </tbody>
             </table>

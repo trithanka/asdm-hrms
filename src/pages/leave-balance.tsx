@@ -1,5 +1,5 @@
-import { Alert, Box, CircularProgress, Stack, Typography } from "@mui/material";
-import { ChangeEvent, useEffect, useState } from "react";
+import { Alert, Box, CircularProgress, Stack } from "@mui/material";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import API from "../api";
@@ -28,9 +28,7 @@ export default function LeaveBalancePage() {
   const [debouncedSearchName, setDebouncedSearchName] = useState("");
   const [designationId, setDesignationId] = useState("");
   const [globalYearEnd, setGlobalYearEnd] = useState("");
-  const [savedRowIds, setSavedRowIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,8 +36,9 @@ export default function LeaveBalancePage() {
   const [fieldErrors, setFieldErrors] = useState<LeaveFieldErrors>({});
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [customPopupMessage, setCustomPopupMessage] = useState("");
+  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const allRowsSaved = rows.length > 0 && savedRowIds.length === rows.length;
   const numericFields: Array<keyof LeaveBalanceRow> = [
     "casualLeave",
     "medicalLeave",
@@ -52,13 +51,39 @@ export default function LeaveBalancePage() {
     return yearOptions.find((year) => String(year.pklYearId) === yearId)?.vsYear ?? yearId;
   };
 
+  const getEffectiveYearEnd = (row: LeaveBalanceRow) => row.yearEnd.trim() || globalYearEnd.trim();
+  const selectedYearLabel = getYearLabel(globalYearEnd);
+  const hasAnyLeaveValue = (row: LeaveBalanceRow) =>
+    numericFields.some((field) => String(row[field] ?? "").trim() !== "");
+
+  const normalizeRowForSelectedYear = (
+    row: LeaveBalanceRow,
+    employee: EmployeeResponseItem,
+    targetYearLabel: string
+  ): LeaveBalanceRow => {
+    const employeeYear = String(employee.vsYear ?? "").trim();
+    const selectedYear = String(targetYearLabel ?? "").trim();
+    const isYearMatched = employeeYear !== "" && selectedYear !== "" && employeeYear === selectedYear;
+
+    if (isYearMatched) return row;
+
+    return {
+      ...row,
+      casualLeave: "",
+      medicalLeave: "",
+      restrictedLeave: "",
+      maternityLeave: "",
+      paternityLeave: "",
+    };
+  };
+
   const validateRow = (row: LeaveBalanceRow): Partial<Record<LeaveFieldKey, string>> => {
     const errors: Partial<Record<LeaveFieldKey, string>> = {};
 
     if (!row.casualLeave.trim()) errors.casualLeave = "Req field";
     if (!row.medicalLeave.trim()) errors.medicalLeave = "Req field";
     if (!row.restrictedLeave.trim()) errors.restrictedLeave = "Req field";
-    if (!row.yearEnd.trim()) errors.yearEnd = "Req field";
+    if (!getEffectiveYearEnd(row)) errors.yearEnd = "Req field";
 
     if (!isMale(row.gender) && !row.maternityLeave.trim()) {
       errors.maternityLeave = "Req field";
@@ -69,18 +94,6 @@ export default function LeaveBalancePage() {
     }
 
     return errors;
-  };
-
-  const validateRows = (targetRows: LeaveBalanceRow[]) => {
-    const nextErrors: LeaveFieldErrors = {};
-    targetRows.forEach((row) => {
-      const rowErrors = validateRow(row);
-      if (Object.keys(rowErrors).length > 0) {
-        nextErrors[row.id] = rowErrors;
-      }
-    });
-    setFieldErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
   };
 
   const resolveYearEndForPayload = (value: string) => {
@@ -100,7 +113,7 @@ export default function LeaveBalancePage() {
     parentialLeave: isFemale(row.gender) ? 0 : toNumber(row.paternityLeave),
     maternityLeave: isMale(row.gender) ? 0 : toNumber(row.maternityLeave),
     restrictedLeave: toNumber(row.restrictedLeave),
-    yearEnd: resolveYearEndForPayload(row.yearEnd),
+    yearEnd: resolveYearEndForPayload(getEffectiveYearEnd(row)),
   });
 
   const saveLeaveRows = async (payload: LeavePayloadItem[]) => {
@@ -109,6 +122,21 @@ export default function LeaveBalancePage() {
         "Content-Type": "application/json",
       },
     });
+  };
+
+  const showSuccessNotification = (message: string) => {
+    if (typeof toast?.success === "function") {
+      toast.success(message);
+      return;
+    }
+
+    setCustomPopupMessage(message);
+    if (popupTimerRef.current) {
+      clearTimeout(popupTimerRef.current);
+    }
+    popupTimerRef.current = setTimeout(() => {
+      setCustomPopupMessage("");
+    }, 1500);
   };
 
   useEffect(() => {
@@ -156,6 +184,13 @@ export default function LeaveBalancePage() {
   }, [yearOptions, globalYearEnd]);
 
   useEffect(() => {
+    if (!globalYearEnd) return;
+    setRows((prev) =>
+      prev.map((row) => (row.yearEnd === globalYearEnd ? row : { ...row, yearEnd: globalYearEnd }))
+    );
+  }, [globalYearEnd]);
+
+  useEffect(() => {
     setPage(0);
   }, [debouncedSearchName, designationId]);
 
@@ -164,6 +199,11 @@ export default function LeaveBalancePage() {
     const controller = new AbortController();
 
     async function fetchPageData() {
+      if (!globalYearEnd) {
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         setError(null);
@@ -171,11 +211,12 @@ export default function LeaveBalancePage() {
         const employeePayload: {
           full_name?: string;
           designationId?: number;
+          year?: number;
           limit: number;
           offset: number;
         } = {
           limit: rowsPerPage,
-          offset: page + 1,
+          offset: page * rowsPerPage,
         };
 
         if (debouncedSearchName) {
@@ -186,6 +227,10 @@ export default function LeaveBalancePage() {
           employeePayload.designationId = Number(designationId);
         }
 
+        if (globalYearEnd) {
+          employeePayload.year = Number(globalYearEnd);
+        }
+
         const employeeResponse = await API.post<EmployeeListResponse>("HrModule/get", employeePayload, {
           signal: controller.signal,
         });
@@ -193,7 +238,13 @@ export default function LeaveBalancePage() {
         if (!isMounted) return;
 
         const responseRows = employeeResponse.data.data ?? [];
-        const mappedRows = responseRows.map((employee) => mapEmployeeToLeaveRow(employee, yearOptions));
+        const mappedRows = responseRows.map((employee) =>
+          normalizeRowForSelectedYear(
+            mapEmployeeToLeaveRow(employee, yearOptions),
+            employee,
+            selectedYearLabel
+          )
+        );
         setRows(
           mappedRows.map((row) => ({
             ...row,
@@ -201,8 +252,6 @@ export default function LeaveBalancePage() {
           }))
         );
         setTotalEmployees(employeeResponse.data.total ?? responseRows.length);
-        setSavedRowIds([]);
-        setSubmitted(false);
         setFieldErrors({});
       } catch (err: any) {
         if (!isMounted) return;
@@ -222,7 +271,7 @@ export default function LeaveBalancePage() {
       isMounted = false;
       controller.abort();
     };
-  }, [debouncedSearchName, designationId, page, rowsPerPage, yearOptions]);
+  }, [debouncedSearchName, designationId, globalYearEnd, page, rowsPerPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -237,7 +286,24 @@ export default function LeaveBalancePage() {
     (id: string, field: keyof LeaveBalanceRow) =>
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { value } = event.target;
-      const nextValue = numericFields.includes(field) ? value.replace(/\D/g, "") : value;
+      const nextValue = numericFields.includes(field)
+        ? (() => {
+            // Allow numbers with an optional decimal point and up to 2 decimal places.
+            let sanitized = value.replace(/[^0-9.]/g, "");
+            const firstDotIndex = sanitized.indexOf(".");
+
+            if (firstDotIndex >= 0) {
+              const integerPart = sanitized.slice(0, firstDotIndex);
+              const decimalPart = sanitized
+                .slice(firstDotIndex + 1)
+                .replace(/\./g, "")
+                .slice(0, 2);
+              sanitized = `${integerPart}.${decimalPart}`;
+            }
+
+            return sanitized;
+          })()
+        : value;
 
       setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [field]: nextValue } : row)));
 
@@ -260,45 +326,20 @@ export default function LeaveBalancePage() {
         return next;
       });
 
-      setSavedRowIds((prev) => prev.filter((rowId) => rowId !== id));
-      setSubmitted(false);
     };
 
-  const handleSaveRow = (id: string) => {
-    if (savedRowIds.includes(id)) {
-      setSavedRowIds((prev) => prev.filter((rowId) => rowId !== id));
-      setSubmitted(false);
-      return;
-    }
-
-    const row = rows.find((item) => item.id === id);
-    if (!row) return;
-
-    const isValid = validateRows([row]);
-    if (!isValid) {
-      toast.error("Please fill required fields.");
-      return;
-    }
-
-    setSavedRowIds((prev) => [...prev, id]);
-    setSubmitted(false);
-  };
-
   const handleSaveAll = () => {
-    if (allRowsSaved) {
-      setSavedRowIds([]);
-      setSubmitted(false);
+    if (!globalYearEnd) {
+      toast.error("Please select Year End before submitting.");
       return;
     }
 
-    const isValid = validateRows(rows);
-    if (!isValid) {
-      toast.error("Please fill required fields.");
+    const rowsWithAnyValue = rows.filter(hasAnyLeaveValue);
+    if (!rowsWithAnyValue.length) {
+      toast.error("No rows with values found to save.");
       return;
     }
-
-    setSavedRowIds(rows.map((row) => row.id));
-    setSubmitted(false);
+    setConfirmOpen(true);
   };
 
   const handleGlobalYearEndChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -319,22 +360,6 @@ export default function LeaveBalancePage() {
       return next;
     });
 
-    setSavedRowIds([]);
-    setSubmitted(false);
-  };
-
-  const openConfirmDialog = () => {
-    if (!globalYearEnd) {
-      toast.error("Please select Year End before submitting.");
-      return;
-    }
-
-    if (savedRowIds.length === 0) {
-      toast.error("Please save at least one employee before submitting.");
-      return;
-    }
-
-    setConfirmOpen(true);
   };
 
   const closeConfirmDialog = () => {
@@ -343,24 +368,26 @@ export default function LeaveBalancePage() {
 
   const handleFinalSubmit = async () => {
     try {
-      const selectedRows = rows.filter((row) => savedRowIds.includes(row.id));
+      const rowsWithAnyValue = rows.filter(hasAnyLeaveValue);
+      const validRows = rowsWithAnyValue.filter((row) => Object.keys(validateRow(row)).length === 0);
+      const skippedRows = rowsWithAnyValue.length - validRows.length;
 
-      if (selectedRows.length === 0) {
-        toast.error("No saved employees selected for submission.");
+      if (validRows.length === 0) {
+        toast.error("No complete rows found to save.");
         return;
       }
 
-      const isValid = validateRows(selectedRows);
-      if (!isValid) {
-        toast.error("Please fill required fields.");
-        return;
-      }
+      // In Save All flow, incomplete rows are skipped instead of blocking submission.
+      setFieldErrors({});
 
       setIsSubmitting(true);
-      await saveLeaveRows(selectedRows.map(mapRowToPayload));
+      await saveLeaveRows(validRows.map(mapRowToPayload));
       setConfirmOpen(false);
-      setSubmitted(true);
-      toast.success("Leave balance submitted successfully.");
+      showSuccessNotification(
+        skippedRows > 0
+          ? `Saved ${validRows.length} row(s). Skipped ${skippedRows} incomplete row(s).`
+          : "Leave balance submitted successfully."
+      );
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to submit leave balances.");
     } finally {
@@ -380,6 +407,7 @@ export default function LeaveBalancePage() {
         const response = await API.post<EmployeeListResponse>("HrModule/get", {
           limit: batchSize,
           offset,
+          ...(globalYearEnd ? { year: Number(globalYearEnd) } : {}),
         });
         const employees = response.data.data ?? [];
         total = response.data.total ?? employees.length;
@@ -431,6 +459,14 @@ export default function LeaveBalancePage() {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (popupTimerRef.current) {
+        clearTimeout(popupTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <Stack spacing={3}>
       <LeaveBalanceToolbar
@@ -439,7 +475,6 @@ export default function LeaveBalancePage() {
         globalYearEnd={globalYearEnd}
         designationOptions={designationOptions}
         yearOptions={yearOptions}
-        allRowsSaved={allRowsSaved}
         isSubmitting={isSubmitting}
         isLoading={isLoading}
         isDownloading={isDownloading}
@@ -448,16 +483,29 @@ export default function LeaveBalancePage() {
         onGlobalYearEndChange={handleGlobalYearEndChange}
         onSaveAll={handleSaveAll}
         onDownloadExcel={handleDownloadExcel}
-        onSubmit={openConfirmDialog}
       />
 
-      {submitted && (
-        <Typography color="success.main" fontWeight={600}>
-          Leave balance submitted successfully.
-        </Typography>
-      )}
-
       {error && <Alert severity="error">{error}</Alert>}
+
+      {customPopupMessage && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 20,
+            right: 20,
+            zIndex: 2000,
+            px: 2,
+            py: 1,
+            borderRadius: 1,
+            bgcolor: "#2e7d32",
+            color: "#fff",
+            boxShadow: 3,
+            fontWeight: 600,
+          }}
+        >
+          {customPopupMessage}
+        </Box>
+      )}
 
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={6}>
@@ -466,17 +514,15 @@ export default function LeaveBalancePage() {
       ) : (
         <LeaveBalanceTable
           rows={rows}
-          savedRowIds={savedRowIds}
           fieldErrors={fieldErrors}
           totalEmployees={totalEmployees}
           page={page}
           rowsPerPage={rowsPerPage}
-          isSubmitting={isSubmitting}
           getYearLabel={getYearLabel}
+          selectedYearEnd={globalYearEnd}
           isMale={isMale}
           isFemale={isFemale}
           onFieldChange={handleFieldChange}
-          onSaveRow={handleSaveRow}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
         />

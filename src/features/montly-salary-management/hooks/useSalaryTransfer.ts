@@ -9,12 +9,14 @@ import {
     useGenerateSalary,
     useSalaryTrackTimeline,
     useSaveEmployeeData,
+    useSalarySendBack,
+    useSalarySlipGenerate,
 } from "./useGetSalaryFile";
 import { useExportSalaryReport } from "./useExportSalaryReport";
 import { formatFyMaster } from "../../../utils/formatter";
 import { getRoleIdFromToken } from "../../../utils/auth";
 import { SALARY_MONTHS } from "../constants/salaryConstants";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFilters } from "../../../api/employee/employee-api";
 import { getDaysInSelectedMonth } from "../utils/workingDays";
 
@@ -29,10 +31,15 @@ function resolveRoleId(authUser: () => any): number {
     );
 }
 
-/** Maps a role ID to the track step sent to the backend. */
-function resolveTrackStep(roleId: number): number {
-    if (roleId === 98) return 1;
+/** Maps role + current workflow position to the track step sent to the backend. */
+function resolveTrackStep(roleId: number, currentStepTrack: number | null): number {
+    // Finance stage
     if (roleId === 36) return 2;
+
+    // HR first pass -> 1, HR after finance -> 3
+    if (roleId === 98) return currentStepTrack === 2 ? 3 : 1;
+
+    // Fallback keeps workflow moving to final step.
     return 3;
 }
 
@@ -70,6 +77,7 @@ function pickDefaultFyId(fyMaster: any[]): number | null {
 export function useSalaryTransfer() {
     const navigate = useNavigate();
     const authUser = useAuthUser();
+    const queryClient = useQueryClient();
 
     // ── Filter state ──────────────────────────────────────────────────────────
     const [selectedStructureType, setSelectedStructureType] = useState<string>("ASDM_NESC");
@@ -82,15 +90,17 @@ export function useSalaryTransfer() {
 
     // ── Dialog state ──────────────────────────────────────────────────────────
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-    const [commentDialogOpen, setCommentDialogOpen] = useState(false);
     const [resultDialogOpen, setResultDialogOpen] = useState(false);
+    const [backToHrDialogOpen, setBackToHrDialogOpen] = useState(false);
+    const [backToFinanceDialogOpen, setBackToFinanceDialogOpen] = useState(false);
+    const [forwardToHrDialogOpen, setForwardToHrDialogOpen] = useState(false);
+    const [forwardToFinanceDialogOpen, setForwardToFinanceDialogOpen] = useState(false);
     const [counts, setCounts] = useState({ skipped: 0, valid: 0 });
     const [resultCounts, setResultCounts] = useState({ success: 0, failed: 0 });
-    const [generationQueue, setGenerationQueue] = useState<any[]>([]);
-    const [timelineComment, setTimelineComment] = useState("");
-    const [timelineStatus, setTimelineStatus] = useState<"Pending" | "Rejected" | "Approved">(
-        "Pending"
-    );
+    const [backToHrComment, setBackToHrComment] = useState("");
+    const [backToFinanceComment, setBackToFinanceComment] = useState("");
+    const [forwardToHrComment, setForwardToHrComment] = useState("");
+    const [forwardToFinanceComment, setForwardToFinanceComment] = useState("");
 
     // ── API data ──────────────────────────────────────────────────────────────
     const { data: structureTypesData, isLoading: isLoadingTypes } = useSalaryStructureTypes();
@@ -121,6 +131,8 @@ export function useSalaryTransfer() {
 
     const generateSalaryMutation = useGenerateSalary();
     const saveEmployeeDataMutation = useSaveEmployeeData();
+    const salarySendBackMutation = useSalarySendBack();
+    const salarySlipGenerateMutation = useSalarySlipGenerate();
     const salaryTimelineMutation = useSalaryTrackTimeline();
     const { exportToExcel, exportToPdf } = useExportSalaryReport();
 
@@ -165,6 +177,23 @@ export function useSalaryTransfer() {
                 (fy) => fy.pklSalaryFinancialYearId === selectedYear
             );
             if (!selectedFyConfig) return false;
+
+            const selectedMonthNum = parseInt(monthValue, 10);
+            const fyStartMonth = Number(selectedFyConfig.iStartMonth || 6);
+            const now = new Date();
+            const nowMonth = now.getMonth() + 1;
+            const nowYear = now.getFullYear();
+            const selectedFyStartYear = Number(selectedFyConfig.vsFy);
+            const currentFyStartYear = nowMonth < fyStartMonth ? nowYear - 1 : nowYear;
+
+            // If selected FY is the current FY, disable months that have not arrived yet.
+            // Uses selected FY start month (June-based in your setup).
+            if (selectedFyStartYear === currentFyStartYear) {
+                const toFyOrder = (m: number) => ((m - fyStartMonth + 12) % 12) + 1;
+                const selectedMonthOrder = toFyOrder(selectedMonthNum);
+                const currentMonthOrder = toFyOrder(nowMonth);
+                if (selectedMonthOrder > currentMonthOrder) return true;
+            }
 
             const allSameFy = structureTypesData.data.fyMaster.filter(
                 (fy) => fy.vsFy === selectedFyConfig.vsFy
@@ -214,6 +243,11 @@ export function useSalaryTransfer() {
         [formattedYears, selectedYear]
     );
 
+    const refreshAfterAction = useCallback(async () => {
+        setCurrentTableData([]);
+        await queryClient.invalidateQueries({ queryKey: ["employee-list"] });
+    }, [queryClient]);
+
     const handleExportExcel = useCallback(() => {
         const data = getEmployeeData();
         if (!data.length) { toast.error("No data available to export"); return; }
@@ -236,16 +270,44 @@ export function useSalaryTransfer() {
         fileName ? toast.success(`Report downloaded: ${fileName}`) : toast.error("Failed to export PDF report");
     }, [getEmployeeData, exportToPdf, selectedMonth, selectedYearLabel, selectedStructureType]);
 
-    // ── Save All handler ──────────────────────────────────────────────────
-    const handleSaveAll = useCallback(async () => {
-        const data = getEmployeeData();
-        if (!data.length) { toast.error("No data to save"); return; }
-        if (!selectedYear) { toast.error("Please select a financial year"); return; }
+    const handleEnableSlip = useCallback(async () => {
+        if (!selectedYear) {
+            toast.error("Please select a financial year");
+            return;
+        }
 
-        const payloadStepTrack = currentStepTrack ?? 1;
+        const salaryStructureType =
+            structureTypesData?.data?.salaryStructureTypes?.find(
+                (s: any) => s.type === selectedStructureType
+            )?.id ?? selectedStructureType;
+
+        try {
+            const res = await salarySlipGenerateMutation.mutateAsync({
+                salaryStructureType,
+                generateMonth: selectedMonth,
+                generateYear: selectedYear.toString(),
+            } as any);
+            toast.success(res?.message || "Salary slip enabled successfully");
+            await refreshAfterAction();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to enable salary slip");
+        }
+    }, [selectedYear, structureTypesData, selectedStructureType, salarySlipGenerateMutation, selectedMonth, refreshAfterAction]);
+
+    const buildSavePayload = useCallback((
+        includeSaveFlag: boolean,
+        commentText?: string,
+        trackStepOverride?: number
+    ) => {
+        const data = getEmployeeData();
+        if (!data.length) { toast.error("No data to save"); return null; }
+        if (!selectedYear) { toast.error("Please select a financial year"); return null; }
+
+        const payloadStepTrack =
+            trackStepOverride ?? resolveTrackStep(resolvedRoleId, currentStepTrack);
         const payloadWorkingDays = data[0]?.workingDays ?? getDaysInSelectedMonth(selectedMonth, new Date().getFullYear());
 
-        const saveEmployees = data.map((emp: any) => ({
+        const generateEmployees = data.map((emp: any) => ({
             fullName: emp.fullName ?? "",
             employeeId: emp.employeeId,
             attendance: emp.attendance ?? "",
@@ -267,19 +329,212 @@ export function useSalaryTransfer() {
             generateMonth: selectedMonth,
             generateYear: selectedYear.toString(),
             trackStep: payloadStepTrack,
-            comment: "process Done",
+            comment: commentText?.trim() || "process Done",
             iWorkingDays: payloadWorkingDays,
-            generateEmployees: saveEmployees,
-            isSave: 1,
+            generateEmployees,
+            ...(includeSaveFlag ? { isSave: 1 } : {}),
         };
+        return payload;
+    }, [getEmployeeData, selectedYear, selectedMonth, selectedStructureType, structureTypesData, currentStepTrack, resolvedRoleId]);
+
+    // ── Save All handler ──────────────────────────────────────────────────
+    const handleSaveAll = useCallback(async () => {
+        // Save should keep/update rows in HR stage.
+        const payload = buildSavePayload(true, undefined, 1);
+        if (!payload) return;
 
         try {
             const res = await saveEmployeeDataMutation.mutateAsync(payload as any);
             toast.success(res?.message || "All records saved successfully");
+            await refreshAfterAction();
         } catch (error: any) {
             toast.error(error?.response?.data?.message || "Failed to save records");
         }
-    }, [getEmployeeData, selectedYear, selectedMonth, selectedStructureType, structureTypesData, saveEmployeeDataMutation, currentStepTrack]);
+    }, [buildSavePayload, saveEmployeeDataMutation, refreshAfterAction]);
+
+    // ── Forward to Finance (without isSave) ────────────────────────────────
+    const handleForwardToFinance = useCallback(async (commentText?: string) => {
+        const payload = buildSavePayload(false, commentText, 1);
+        if (!payload) return;
+
+        try {
+            const res = await saveEmployeeDataMutation.mutateAsync(payload as any);
+            toast.success(res?.message || "Forwarded to Finance successfully");
+            await refreshAfterAction();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to forward to Finance");
+        }
+    }, [buildSavePayload, saveEmployeeDataMutation, refreshAfterAction]);
+
+    const openForwardToFinanceDialog = useCallback(() => {
+        setForwardToFinanceComment("");
+        setForwardToFinanceDialogOpen(true);
+    }, []);
+
+    const handleConfirmForwardToFinance = useCallback(async () => {
+        if (!forwardToFinanceComment.trim()) {
+            toast.error("Please add a comment before forwarding");
+            return;
+        }
+        await handleForwardToFinance(forwardToFinanceComment.trim());
+        setForwardToFinanceDialogOpen(false);
+    }, [forwardToFinanceComment, handleForwardToFinance]);
+
+    const openBackToHrDialog = useCallback(() => {
+        setBackToHrComment("");
+        setBackToHrDialogOpen(true);
+    }, []);
+
+    const openBackToFinanceDialog = useCallback(() => {
+        setBackToFinanceComment("");
+        setBackToFinanceDialogOpen(true);
+    }, []);
+
+    const handleConfirmBackToHr = useCallback(async () => {
+        if (!backToHrComment.trim()) {
+            toast.error("Please add a comment before sending back");
+            return;
+        }
+        if (!selectedYear) {
+            toast.error("Please select a financial year");
+            return;
+        }
+
+        const data = getEmployeeData();
+        const employeeIds = data
+            .filter((emp: any) => !emp.hold && emp.isHold !== 1 && (emp.stepTrack ?? null) === 2)
+            .map((emp: any) => Number(emp.employeeId));
+
+        if (!employeeIds.length) {
+            toast.error("No step 2 employees available to send back");
+            return;
+        }
+
+        const payload = {
+            salaryStructureType:
+                structureTypesData?.data?.salaryStructureTypes?.find(
+                    (s: any) => s.type === selectedStructureType
+                )?.id ?? selectedStructureType,
+            generateMonth: selectedMonth,
+            generateYear: selectedYear.toString(),
+            trackStep: 2,
+            comment: backToHrComment.trim(),
+            generateEmployees: employeeIds,
+        };
+
+        try {
+            const res = await salarySendBackMutation.mutateAsync(payload as any);
+            toast.success(res?.message || "Sent back to HR successfully");
+            setBackToHrDialogOpen(false);
+            await refreshAfterAction();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to send back to HR");
+        }
+    }, [backToHrComment, selectedYear, getEmployeeData, structureTypesData, selectedStructureType, selectedMonth, salarySendBackMutation, refreshAfterAction]);
+
+    const handleConfirmBackToFinance = useCallback(async () => {
+        if (!backToFinanceComment.trim()) {
+            toast.error("Please add a comment before sending back");
+            return;
+        }
+        if (!selectedYear) {
+            toast.error("Please select a financial year");
+            return;
+        }
+
+        const data = getEmployeeData();
+        const employeeIds = data
+            .filter((emp: any) => !emp.hold && emp.isHold !== 1 && (emp.stepTrack ?? null) === 3)
+            .map((emp: any) => Number(emp.employeeId));
+
+        if (!employeeIds.length) {
+            toast.error("No step 3 employees available to send back");
+            return;
+        }
+
+        const payload = {
+            salaryStructureType:
+                structureTypesData?.data?.salaryStructureTypes?.find(
+                    (s: any) => s.type === selectedStructureType
+                )?.id ?? selectedStructureType,
+            generateMonth: selectedMonth,
+            generateYear: selectedYear.toString(),
+            trackStep: 3,
+            comment: backToFinanceComment.trim(),
+            generateEmployees: employeeIds,
+        };
+
+        try {
+            const res = await salarySendBackMutation.mutateAsync(payload as any);
+            toast.success(res?.message || "Sent back to Finance successfully");
+            setBackToFinanceDialogOpen(false);
+            await refreshAfterAction();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to send back to Finance");
+        }
+    }, [backToFinanceComment, selectedYear, getEmployeeData, structureTypesData, selectedStructureType, selectedMonth, salarySendBackMutation, refreshAfterAction]);
+
+    const openForwardToHrDialog = useCallback(() => {
+        setForwardToHrComment("");
+        setForwardToHrDialogOpen(true);
+    }, []);
+
+    const handleConfirmForwardToHr = useCallback(async () => {
+        if (!forwardToHrComment.trim()) {
+            toast.error("Please add a comment before forwarding");
+            return;
+        }
+        if (!selectedYear) {
+            toast.error("Please select a financial year");
+            return;
+        }
+
+        const data = getEmployeeData();
+        const forwardEmployees = data
+            .filter((emp: any) => !emp.hold && emp.isHold !== 1 && (emp.stepTrack ?? null) === 2)
+            .map((emp: any) => ({
+                fullName: emp.fullName ?? "",
+                employeeId: emp.employeeId,
+                attendance: emp.attendance ?? "",
+                lwp: emp.lwpDays ?? null,
+                arear: emp.arrear ?? null,
+                incomeTax: emp.deductionIncomeTax ?? null,
+                otherDeduction: emp.ddvancesOtherDeductions ?? null,
+                basicPay: emp.basicPay ?? 0,
+                isHold: emp.hold ? 1 : (emp.isHold ?? 0),
+                stepTrack: emp.stepTrack ?? 1,
+                comment: emp.employeeCommentBeforeAck ?? "",
+            }));
+
+        if (!forwardEmployees.length) {
+            toast.error("No step 2 employees available to forward");
+            return;
+        }
+
+        const payloadWorkingDays = data[0]?.workingDays ?? getDaysInSelectedMonth(selectedMonth, new Date().getFullYear());
+
+        const payload = {
+            salaryStructureType:
+                structureTypesData?.data?.salaryStructureTypes?.find(
+                    (s: any) => s.type === selectedStructureType
+                )?.id ?? selectedStructureType,
+            generateMonth: selectedMonth,
+            generateYear: selectedYear.toString(),
+            trackStep: 2,
+            comment: forwardToHrComment.trim(),
+            iWorkingDays: payloadWorkingDays,
+            generateEmployees: forwardEmployees,
+        };
+
+        try {
+            const res = await saveEmployeeDataMutation.mutateAsync(payload as any);
+            toast.success(res?.message || "Forwarded to HR successfully");
+            setForwardToHrDialogOpen(false);
+            await refreshAfterAction();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to forward to HR");
+        }
+    }, [forwardToHrComment, selectedYear, getEmployeeData, structureTypesData, selectedStructureType, selectedMonth, saveEmployeeDataMutation, refreshAfterAction]);
 
     // ── Timeline handler ──────────────────────────────────────────────────────
     const handleTimeline = useCallback(() => {
@@ -299,6 +554,10 @@ export function useSalaryTransfer() {
     // ── Generation handlers ───────────────────────────────────────────────────
     const runGeneration = useCallback(
         async (employees: any[]) => {
+            const payloadWorkingDays =
+                employees[0]?.workingDays ??
+                getDaysInSelectedMonth(selectedMonth, new Date().getFullYear());
+
             const generateEmployees = employees.map((emp: any) => ({
                 fullName: emp.fullName ?? "",
                 employeeId: emp.employeeId,
@@ -307,7 +566,10 @@ export function useSalaryTransfer() {
                 arear: emp.arrear ?? null,
                 incomeTax: emp.deductionIncomeTax ?? null,
                 otherDeduction: emp.ddvancesOtherDeductions ?? null,
+                basicPay: emp.basicPay ?? 0,
                 isHold: emp.hold ? 1 : 0,
+                stepTrack: emp.stepTrack ?? 1,
+                comment: emp.employeeCommentBeforeAck ?? "",
             }));
 
             const payload = {
@@ -317,7 +579,9 @@ export function useSalaryTransfer() {
                     )?.id ?? selectedStructureType,
                 generateMonth: selectedMonth,
                 generateYear: selectedYear.toString(),
-                trackStep: resolveTrackStep(resolvedRoleId),
+                trackStep: 3,
+                comment: "process Done",
+                iWorkingDays: payloadWorkingDays,
                 generateEmployees,
             };
 
@@ -332,50 +596,47 @@ export function useSalaryTransfer() {
                 toast.error(error?.response?.data?.message || "Failed to generate salary.");
             }
         },
-        [structureTypesData, selectedStructureType, selectedMonth, selectedYear, resolvedRoleId, generateSalaryMutation]
+        [
+            structureTypesData,
+            selectedStructureType,
+            selectedMonth,
+            selectedYear,
+            resolvedRoleId,
+            currentStepTrack,
+            generateSalaryMutation,
+        ]
     );
-
-    const openCommentDialog = useCallback((employees: any[]) => {
-        if (!employees?.length) { toast.error("No employees with valid attendance found."); return; }
-        setGenerationQueue(employees);
-        setTimelineComment("");
-        setTimelineStatus("Pending");
-        setCommentDialogOpen(true);
-    }, []);
-
-    const handleConfirmAndGenerate = useCallback(async () => {
-        if (!timelineComment.trim()) { toast.error("Please add a comment before proceeding."); return; }
-        setCommentDialogOpen(false);
-        await runGeneration(generationQueue);
-        setGenerationQueue([]);
-    }, [timelineComment, runGeneration, generationQueue]);
 
     const handleSubmit = useCallback(() => {
         const data = getEmployeeData();
         if (!data.length) { toast.error("No employees to submit"); return; }
 
-        const valid = data.filter(
+        const pendingEmployees = data.filter(
+            (emp: any) => String(emp?.salaryStatus ?? "").trim().toLowerCase() !== "generated"
+        );
+
+        const valid = pendingEmployees.filter(
             (emp: any) => emp.attendance !== null && emp.attendance !== undefined && emp.attendance > 0
         );
-        const skipped = data.length - valid.length;
+        const skipped = pendingEmployees.length - valid.length;
 
         if (!valid.length) { toast.error("No employees with valid attendance found."); return; }
-        if (skipped > 0) {
-            setCounts({ skipped, valid: valid.length });
-            setConfirmDialogOpen(true);
-        } else {
-            openCommentDialog(valid);
-        }
-    }, [getEmployeeData, openCommentDialog]);
+        setCounts({ skipped, valid: valid.length });
+        setConfirmDialogOpen(true);
+    }, [getEmployeeData]);
 
-    const handleProceedAfterConfirm = useCallback(() => {
+    const handleProceedAfterConfirm = useCallback(async () => {
         setConfirmDialogOpen(false);
         const data = getEmployeeData();
-        const valid = data.filter(
+        const pendingEmployees = data.filter(
+            (emp: any) => String(emp?.salaryStatus ?? "").trim().toLowerCase() !== "generated"
+        );
+        const valid = pendingEmployees.filter(
             (emp: any) => emp.attendance !== null && emp.attendance !== undefined && emp.attendance > 0
         );
-        openCommentDialog(valid);
-    }, [getEmployeeData, openCommentDialog]);
+        if (!valid.length) { toast.error("No employees with valid attendance found."); return; }
+        await runGeneration(valid);
+    }, [getEmployeeData, runGeneration]);
 
     return {
         // Filter values
@@ -404,24 +665,40 @@ export function useSalaryTransfer() {
         // Mutations
         generateSalaryMutation,
         saveEmployeeDataMutation,
+        salarySendBackMutation,
+        salarySlipGenerateMutation,
         salaryTimelineMutation,
 
         // Handlers
         handleExportExcel,
         handleExportPdf,
         handleSaveAll,
+        handleForwardToFinance,
+        handleEnableSlip,
+        openForwardToFinanceDialog,
+        handleConfirmForwardToFinance,
+        openForwardToHrDialog,
+        handleConfirmForwardToHr,
+        openBackToHrDialog,
+        handleConfirmBackToHr,
+        openBackToFinanceDialog,
+        handleConfirmBackToFinance,
         handleTimeline,
         handleSubmit,
-        handleConfirmAndGenerate,
         handleProceedAfterConfirm,
 
         // Dialog state
         confirmDialogOpen, setConfirmDialogOpen,
-        commentDialogOpen, setCommentDialogOpen,
         resultDialogOpen, setResultDialogOpen,
+        backToHrDialogOpen, setBackToHrDialogOpen,
+        backToFinanceDialogOpen, setBackToFinanceDialogOpen,
+        forwardToHrDialogOpen, setForwardToHrDialogOpen,
+        forwardToFinanceDialogOpen, setForwardToFinanceDialogOpen,
         counts,
         resultCounts,
-        timelineComment, setTimelineComment,
-        timelineStatus, setTimelineStatus,
+        backToHrComment, setBackToHrComment,
+        backToFinanceComment, setBackToFinanceComment,
+        forwardToHrComment, setForwardToHrComment,
+        forwardToFinanceComment, setForwardToFinanceComment,
     };
 }

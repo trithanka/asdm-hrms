@@ -1,7 +1,4 @@
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import {
-  IconButton,
   Paper,
   Stack,
   Table,
@@ -19,20 +16,18 @@ import { LeaveBalanceRow, LeaveFieldErrors } from "../types";
 
 type LeaveBalanceTableProps = {
   rows: LeaveBalanceRow[];
-  savedRowIds: string[];
   fieldErrors: LeaveFieldErrors;
   totalEmployees: number;
   page: number;
   rowsPerPage: number;
-  isSubmitting: boolean;
   getYearLabel: (yearId: string) => string;
+  selectedYearEnd: string;
   isMale: (gender: string) => boolean;
   isFemale: (gender: string) => boolean;
   onFieldChange: (
     id: string,
     field: keyof LeaveBalanceRow
   ) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  onSaveRow: (id: string) => void;
   onPageChange: (_event: unknown, newPage: number) => void;
   onRowsPerPageChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 };
@@ -43,19 +38,19 @@ const stickyCellStyles = {
   zIndex: 11,
 };
 
+const DECIMAL_2_PATTERN = "^\\d*(\\.\\d{0,2})?$";
+
 export function LeaveBalanceTable({
   rows,
-  savedRowIds,
   fieldErrors,
   totalEmployees,
   page,
   rowsPerPage,
-  isSubmitting,
   getYearLabel,
+  selectedYearEnd,
   isMale,
   isFemale,
   onFieldChange,
-  onSaveRow,
   onPageChange,
   onRowsPerPageChange,
 }: LeaveBalanceTableProps) {
@@ -75,7 +70,7 @@ export function LeaveBalanceTable({
                 minWidth: 80,
               }}
             >
-              ID
+              SL No.
             </TableCell>
             <TableCell
               sx={{
@@ -108,21 +103,25 @@ export function LeaveBalanceTable({
             <TableCell sx={{ fontWeight: 700, border: "1px solid #ddd", backgroundColor: "#e0f2f1", minWidth: 130, textAlign: "center" }}>
               Year
             </TableCell>
-            <TableCell sx={{ fontWeight: 700, border: "1px solid #ddd", backgroundColor: "#f5f5f5", minWidth: 90, textAlign: "center" }}>
-              Save
-            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row) => {
-            const isSaved = savedRowIds.includes(row.id);
+          {rows.map((row, index) => {
             const disableMaternity = isMale(row.gender);
             const disablePaternity = isFemale(row.gender);
+            const maternityDisplayValue =
+              disableMaternity && (!row.maternityLeave.trim() || Number(row.maternityLeave) === 0)
+                ? ""
+                : row.maternityLeave;
+            const paternityDisplayValue =
+              disablePaternity && (!row.paternityLeave.trim() || Number(row.paternityLeave) === 0)
+                ? ""
+                : row.paternityLeave;
 
             return (
-              <TableRow key={row.id} hover>
+              <TableRow key={`${row.id}-${index}`} hover>
                 <TableCell sx={{ ...stickyCellStyles, position: "sticky", left: 0 }}>
-                  {row.id}
+                  {page * rowsPerPage + index + 1}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -153,7 +152,7 @@ export function LeaveBalanceTable({
                     onChange={onFieldChange(row.id, "casualLeave")}
                     error={Boolean(fieldErrors[row.id]?.casualLeave)}
                     helperText={fieldErrors[row.id]?.casualLeave ?? ""}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+                    inputProps={{ inputMode: "decimal", pattern: DECIMAL_2_PATTERN, style: { textAlign: "center" } }}
                   />
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
@@ -165,7 +164,7 @@ export function LeaveBalanceTable({
                     onChange={onFieldChange(row.id, "medicalLeave")}
                     error={Boolean(fieldErrors[row.id]?.medicalLeave)}
                     helperText={fieldErrors[row.id]?.medicalLeave ?? ""}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+                    inputProps={{ inputMode: "decimal", pattern: DECIMAL_2_PATTERN, style: { textAlign: "center" } }}
                   />
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
@@ -177,7 +176,7 @@ export function LeaveBalanceTable({
                     onChange={onFieldChange(row.id, "restrictedLeave")}
                     error={Boolean(fieldErrors[row.id]?.restrictedLeave)}
                     helperText={fieldErrors[row.id]?.restrictedLeave ?? ""}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+                    inputProps={{ inputMode: "decimal", pattern: DECIMAL_2_PATTERN, style: { textAlign: "center" } }}
                   />
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
@@ -185,13 +184,24 @@ export function LeaveBalanceTable({
                     type="text"
                     size="small"
                     fullWidth
-                    value={row.maternityLeave}
+                    value={maternityDisplayValue}
                     onChange={onFieldChange(row.id, "maternityLeave")}
-                    placeholder="Enter value"
+                    placeholder={disableMaternity ? "N/A" : ""}
                     disabled={disableMaternity}
                     error={Boolean(fieldErrors[row.id]?.maternityLeave)}
                     helperText={fieldErrors[row.id]?.maternityLeave ?? ""}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+                    inputProps={{ inputMode: "decimal", pattern: DECIMAL_2_PATTERN, style: { textAlign: "center" } }}
+                    sx={{
+                      ...(disableMaternity
+                        ? {
+                            "& .MuiOutlinedInput-root": { backgroundColor: "#f3f4f6" },
+                            "& .MuiInputBase-input.Mui-disabled": {
+                              WebkitTextFillColor: "#5f6368",
+                              cursor: "not-allowed",
+                            },
+                          }
+                        : {}),
+                    }}
                   />
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
@@ -199,46 +209,48 @@ export function LeaveBalanceTable({
                     type="text"
                     size="small"
                     fullWidth
-                    value={row.paternityLeave}
+                    value={paternityDisplayValue}
                     onChange={onFieldChange(row.id, "paternityLeave")}
-                    placeholder="Enter value"
+                    placeholder={disablePaternity ? "N/A" : ""}
                     disabled={disablePaternity}
                     error={Boolean(fieldErrors[row.id]?.paternityLeave)}
                     helperText={fieldErrors[row.id]?.paternityLeave ?? ""}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+                    inputProps={{ inputMode: "decimal", pattern: DECIMAL_2_PATTERN, style: { textAlign: "center" } }}
+                    sx={{
+                      ...(disablePaternity
+                        ? {
+                            "& .MuiOutlinedInput-root": { backgroundColor: "#f3f4f6" },
+                            "& .MuiInputBase-input.Mui-disabled": {
+                              WebkitTextFillColor: "#5f6368",
+                              cursor: "not-allowed",
+                            },
+                          }
+                        : {}),
+                    }}
                   />
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #ddd", p: 0.5 }}>
                   <TextField
                     size="small"
                     fullWidth
-                    value={getYearLabel(row.yearEnd)}
+                    value={getYearLabel(selectedYearEnd || row.yearEnd)}
                     error={Boolean(fieldErrors[row.id]?.yearEnd)}
                     helperText={fieldErrors[row.id]?.yearEnd ?? ""}
                     InputProps={{
                       readOnly: true,
                       tabIndex: -1,
-                      sx: { cursor: "not-allowed", backgroundColor: "#d0d0d0" },
+                      sx: { cursor: "not-allowed", backgroundColor: "#f3f4f6" },
                     }}
                     inputProps={{
                       tabIndex: -1,
-                      style: { textAlign: "center", cursor: "not-allowed", pointerEvents: "none" },
+                      style: { textAlign: "center", cursor: "not-allowed", pointerEvents: "none", color: "#5f6368" },
                     }}
                     onFocus={(event) => event.target.blur()}
                     sx={{
                       cursor: "not-allowed",
-                      "& .MuiOutlinedInput-root": { backgroundColor: "#d0d0d0" },
+                      "& .MuiOutlinedInput-root": { backgroundColor: "#f3f4f6" },
                     }}
                   />
-                </TableCell>
-                <TableCell sx={{ border: "1px solid #ddd", textAlign: "center" }}>
-                  <IconButton
-                    color={isSaved ? "success" : "primary"}
-                    disabled={isSubmitting}
-                    onClick={() => onSaveRow(row.id)}
-                  >
-                    {isSaved ? <CheckCircleIcon /> : <SaveOutlinedIcon />}
-                  </IconButton>
                 </TableCell>
               </TableRow>
             );

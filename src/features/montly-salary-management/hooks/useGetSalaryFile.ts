@@ -99,9 +99,23 @@ export const useSalarySlip = () => {
     });
 };
 
+export const useSalarySlipGenerate = () => {
+    return useMutation({
+        mutationFn: (payload: import("../../../api/salary/salary-file-api").SalarySlipGeneratePayload) =>
+            salaryFileApi.salarySlipGenerate(payload),
+    });
+};
+
 export const useSalaryTrackTimeline = () => {
     return useMutation({
         mutationFn: (payload: import("../../../api/salary/salary-file-api").SalaryTrackTimelinePayload) =>
             salaryFileApi.getSalaryTrackTimeline(payload),
+    });
+};
+
+export const useSalarySendBack = () => {
+    return useMutation({
+        mutationFn: (payload: import("../../../api/salary/salary-file-api").SalarySendBackPayload) =>
+            salaryFileApi.salarySendBack(payload),
     });
 };

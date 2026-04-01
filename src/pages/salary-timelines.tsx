@@ -1,43 +1,52 @@
 import { IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const timelineDummyData = [
-  {
-    id: 1,
-    lastActionBy: "Ritika Das",
-    designation: "HR",
-    comment: "Attendance verified and payroll draft prepared.",
-    status: "Pending Finance Review",
-    dateOfAction: "24-03-2026 10:15 AM",
-  },
-  {
-    id: 2,
-    lastActionBy: "Abhijit Kalita",
-    designation: "Finance",
-    comment: "Reviewed salary components and approved disbursement.",
-    status: "Approved",
-    dateOfAction: "24-03-2026 11:05 AM",
-  },
-  {
-    id: 3,
-    lastActionBy: "Nabanita Devi",
-    designation: "HR",
-    comment: "Updated arrear entries for two employees.",
-    status: "Revised",
-    dateOfAction: "24-03-2026 12:20 PM",
-  },
-  {
-    id: 4,
-    lastActionBy: "Partha Bhuyan",
-    designation: "Finance",
-    comment: "Final verification completed and marked for release.",
-    status: "Released",
-    dateOfAction: "24-03-2026 01:40 PM",
-  },
-];
+type SalaryTimelineApiRow = {
+  pklSalaryMonthTrackID: number;
+  generateMonth: string;
+  submittedDate: string;
+  submittedBy: number;
+  comment: string;
+  verifyStatus: string;
+  roleId: number;
+  trackStep: number | null;
+  fklSalarystructureType: number;
+  created_at: string;
+  updated_at: string;
+};
 
 export default function SalaryTimelinesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const timelineResponse = location.state?.timelineData;
+  const timelineRows: SalaryTimelineApiRow[] = Array.isArray(timelineResponse?.data)
+    ? timelineResponse.data
+    : [];
+
+  const roleLabel = (roleId: number) => {
+    if (roleId === 98) return "HR";
+    if (roleId === 36) return "Finance";
+    return `Role ${roleId}`;
+  };
+
+  const formatDateTime = (value: string) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+
+    // Keep API timestamp clock as-is (UTC parts), avoid local timezone shift.
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const year = d.getUTCFullYear();
+    const hour24 = d.getUTCHours();
+    const minute = String(d.getUTCMinutes()).padStart(2, "0");
+    const ampm = hour24 >= 12 ? "pm" : "am";
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    const hour = String(hour12).padStart(2, "0");
+
+    return `${day}/${month}/${year}, ${hour}:${minute} ${ampm}`;
+  };
 
   return (
     <Stack spacing={2}>
@@ -88,14 +97,24 @@ export default function SalaryTimelinesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {timelineDummyData.map((row) => (
-              <TableRow key={row.id}>
+            {timelineRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} sx={{ border: "1px solid #e0e0e0", textAlign: "center", py: 3 }}>
+                  No timeline data found
+                </TableCell>
+              </TableRow>
+            ) : timelineRows.map((row) => (
+              <TableRow key={row.pklSalaryMonthTrackID}>
                 <TableCell sx={{ border: "1px solid #e0e0e0" }}>
-                  {row.lastActionBy} ({row.designation})
+                  {row.submittedBy} ({roleLabel(row.roleId)})
                 </TableCell>
                 <TableCell sx={{ border: "1px solid #e0e0e0" }}>{row.comment}</TableCell>
-                <TableCell sx={{ border: "1px solid #e0e0e0" }}>{row.status}</TableCell>
-                <TableCell sx={{ border: "1px solid #e0e0e0" }}>{row.dateOfAction}</TableCell>
+                <TableCell sx={{ border: "1px solid #e0e0e0" }}>
+                  {row.verifyStatus} (Step {row.trackStep ?? 1})
+                </TableCell>
+                <TableCell sx={{ border: "1px solid #e0e0e0" }}>
+                  {formatDateTime(row.created_at || row.updated_at || row.submittedDate)}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
